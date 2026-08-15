@@ -1,0 +1,11 @@
+{
+    "name": "frust_library",
+    "version": "0.1.0",
+    "type": "bin",
+    "description": "Workspace root for the Frust standard library pods.",
+    "exports": [],
+    "dependencies": [],
+    "workspace": {
+        "members": ["core"]
+    }
+}
