@@ -1,0 +1,12 @@
+// core/time - time.h primitives.
+//
+// Only clock() is wrapped here. time(), difftime(), etc. all either
+// return plain `int`-adjacent types or take a pointer-to-output-param
+// that Frust can't express cleanly yet (no way to pass a null String
+// literal). clock() has neither problem: no args, and clock_t is a
+// 64-bit `long` on both target platforms - matches i64 exactly.
+extern fn clock() -> i64;
+
+pub fn now_ticks() -> i64 = {
+    clock()
+}

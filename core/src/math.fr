@@ -1,0 +1,88 @@
+// core/math - basic math and trig primitives.
+
+// NOTE: conditions here are parenthesized - `if a < b { a }` is genuinely
+// ambiguous in this grammar whenever the condition ends in a bare
+// identifier immediately before `{` (same problem Rust has with struct
+// literals in condition position, for the same reason: `b {` could be
+// starting a struct literal continuing the condition expression, or it
+// could be the if's own block). `if (a < b) { a }` sidesteps it - the
+// parens force the condition to fully reduce first. Not yet worth a
+// grammar-level fix (Rust's actual fix is a parallel "no struct literal"
+// expression grammar just for condition position); parenthesizing is the
+// house style for now.
+
+pub fn abs_i64(val: i64) -> i64 = {
+    if val < 0 { -val } else { val }
+}
+
+pub fn abs_f64(val: f64) -> f64 = {
+    if val < 0.0 { -val } else { val }
+}
+
+pub fn min_i64(a: i64, b: i64) -> i64 = {
+    if (a < b) { a } else { b }
+}
+
+pub fn max_i64(a: i64, b: i64) -> i64 = {
+    if (a > b) { a } else { b }
+}
+
+pub fn min_f64(a: f64, b: f64) -> f64 = {
+    if (a < b) { a } else { b }
+}
+
+pub fn max_f64(a: f64, b: f64) -> f64 = {
+    if (a > b) { a } else { b }
+}
+
+pub fn clamp_i64(val: i64, lo: i64, hi: i64) -> i64 = {
+    if (val < lo) { lo } else {
+        if (val > hi) { hi } else { val }
+    }
+}
+
+pub fn clamp_f64(val: f64, lo: f64, hi: f64) -> f64 = {
+    if (val < lo) { lo } else {
+        if (val > hi) { hi } else { val }
+    }
+}
+
+// -----------------------------------------------------------------------
+// Trig - re-exports libc's libm functions directly (fixed-arity, real
+// linkable symbols - unlike console_io.fr's frust_print_*/frust_format_*
+// helpers, these work via JIT *and* would resolve fine in a future
+// frate-build-produced standalone executable, since libm is part of the
+// C runtime every such executable links automatically).
+// -----------------------------------------------------------------------
+
+pub extern fn sin(x: f64) -> f64;
+pub extern fn cos(x: f64) -> f64;
+pub extern fn tan(x: f64) -> f64;
+pub extern fn asin(x: f64) -> f64;
+pub extern fn acos(x: f64) -> f64;
+pub extern fn atan(x: f64) -> f64;
+pub extern fn atan2(y: f64, x: f64) -> f64;
+pub extern fn sqrt(x: f64) -> f64;
+pub extern fn cbrt(x: f64) -> f64;
+pub extern fn pow(base: f64, exp: f64) -> f64;
+pub extern fn exp(x: f64) -> f64;
+pub extern fn log(x: f64) -> f64;
+pub extern fn log2(x: f64) -> f64;
+pub extern fn log10(x: f64) -> f64;
+pub extern fn floor(x: f64) -> f64;
+pub extern fn ceil(x: f64) -> f64;
+pub extern fn round(x: f64) -> f64;
+pub extern fn fmod(x: f64, y: f64) -> f64;
+pub extern fn hypot(x: f64, y: f64) -> f64;
+
+pub fn pi() -> f64 = {
+    3.14159265358979323846
+}
+
+pub fn to_radians(deg: f64) -> f64 = {
+    deg * pi() / 180.0
+}
+
+pub fn to_degrees(rad: f64) -> f64 = {
+    rad * 180.0 / pi()
+}

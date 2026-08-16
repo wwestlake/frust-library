@@ -1,0 +1,19 @@
+// core/string - libc string.h functions, wrapped where Frust's type
+// system can represent them correctly.
+//
+// Frust has no i32 - only i64. That blocks wrapping any libc function
+// whose real C signature returns a plain `int` (32-bit): strcmp,
+// strncmp, memcmp are all skipped here for exactly that reason. The C
+// ABI (both x86-64 SysV and AArch64 AAPCS64) leaves the upper 32 bits of
+// a 32-bit return register unspecified - declaring such a function as
+// `-> i64` in Frust would read garbage in those bits, not just a
+// harmlessly-truncated value. This isn't a style choice, it's a real gap:
+// fixing it means adding an i32 type to Frust, not wrapping harder.
+//
+// What's below is what's actually safe: strlen returns size_t, which is
+// 64-bit on both target platforms - matches i64 exactly, no width issue.
+extern fn strlen(s: String) -> i64;
+
+pub fn len(s: String) -> i64 = {
+    strlen(s)
+}

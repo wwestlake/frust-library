@@ -2,7 +2,19 @@
   "name": "core",
   "version": "1.0.0",
   "type": "lib",
-  "description": "A new Frust pod.",
-  "exports": [],
+  "description": "Foundational Frust pod: string formatting/concat, console output, math/trig, libc string/mem/file/time primitives.",
+  "exports": [
+    "format_i64", "format_f64", "format_bool", "concat",
+    "println_str", "println_i64", "println_f64", "println_bool",
+    "abs_i64", "abs_f64", "min_i64", "max_i64", "min_f64", "max_f64",
+    "clamp_i64", "clamp_f64",
+    "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "sqrt", "cbrt",
+    "pow", "exp", "log", "log2", "log10", "floor", "ceil", "round", "fmod", "hypot",
+    "pi", "to_radians", "to_degrees",
+    "len",
+    "alloc", "dealloc", "copy", "fill",
+    "open", "read", "write", "read_line",
+    "now_ticks"
+  ],
   "dependencies": []
 }

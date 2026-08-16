@@ -1,0 +1,44 @@
+// core/mem - raw heap allocation and buffer functions from stdlib.h/string.h.
+//
+// Frust has no dedicated raw-pointer type yet (own/shared are designed
+// in FRUST_LANG_SPEC.md but have zero codegen - see project notes).
+// `String` is the only pointer-shaped type that exists today, so it's
+// reused here as a stand-in for `void*`. That's correct at the ABI level
+// (a pointer is a pointer, regardless of declared pointee type - LLVM
+// doesn't care), but it's a real semantic mismatch worth flagging: a
+// buffer returned by malloc() or memset() is NOT a null-terminated C
+// string, and passing it to console_io.fr's println_str/format_* or
+// string.fr's len() will misbehave (read past the buffer looking for a
+// NUL that may not be there). Treat these return values as opaque
+// addresses only - don't hand them to the string-specific functions.
+// Fixing this properly means adding a real Ptr<T>/RawPtr type to the
+// language, not something this pass does.
+//
+// Return-width note (see string.fr for the full explanation): malloc/
+// realloc/free's signatures only involve pointers and size_t, both
+// 64-bit on both target platforms - no i32 problem here, unlike most of
+// string.h.
+
+extern fn malloc(size: i64) -> String;
+extern fn realloc(ptr: String, size: i64) -> String;
+extern fn free(ptr: String);
+
+extern fn memcpy(dest: String, src: String, n: i64) -> String;
+extern fn memmove(dest: String, src: String, n: i64) -> String;
+extern fn memset(dest: String, val: i64, n: i64) -> String;
+
+pub fn alloc(size: i64) -> String = {
+    malloc(size)
+}
+
+pub fn dealloc(ptr: String) = {
+    free(ptr)
+}
+
+pub fn copy(dest: String, src: String, n: i64) -> String = {
+    memcpy(dest, src, n)
+}
+
+pub fn fill(dest: String, val: i64, n: i64) -> String = {
+    memset(dest, val, n)
+}

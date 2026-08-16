@@ -1,0 +1,57 @@
+// core/console_io - string formatting/concatenation and console output.
+//
+// Frust has no variadic extern declarations or a generic printf binding
+// yet (see FRUST_LANG_SPEC.md), and no string ownership/allocation of its
+// own - `String` is just a null-terminated pointer. So format_*/concat
+// wrap a small set of fixed-arity C runtime helpers - frust_format_*,
+// frust_str_concat, frust_print_str - exported from the host process
+// itself (frust_compiler's Main.cpp and the IDE's Main.cpp both export
+// the identical set). Those return a pointer into a small rotating pool
+// of static buffers (see Main.cpp's comment) rather than a real
+// allocation: fine for formatting/concatenating a handful of values in
+// one expression and printing the result, NOT safe to stash a returned
+// String past more than a few further format/concat calls.
+//
+// JIT-only for now: works via `frust_compiler <file>` and the IDE's REPL,
+// not yet linkable into a `frate build`-produced standalone executable
+// (needs an actual runtime library for the linker to pull these symbols
+// from - not built yet, same "AOT deferred" status FRATE_SPEC.md already
+// notes elsewhere).
+
+extern fn frust_format_i64(val: i64) -> String;
+extern fn frust_format_f64(val: f64) -> String;
+extern fn frust_format_bool(val: bool) -> String;
+extern fn frust_str_concat(a: String, b: String) -> String;
+extern fn frust_print_str(val: String);
+
+pub fn format_i64(val: i64) -> String = {
+    frust_format_i64(val)
+}
+
+pub fn format_f64(val: f64) -> String = {
+    frust_format_f64(val)
+}
+
+pub fn format_bool(val: bool) -> String = {
+    frust_format_bool(val)
+}
+
+pub fn concat(a: String, b: String) -> String = {
+    frust_str_concat(a, b)
+}
+
+pub fn println_str(val: String) = {
+    frust_print_str(val)
+}
+
+pub fn println_i64(val: i64) = {
+    println_str(format_i64(val))
+}
+
+pub fn println_f64(val: f64) = {
+    println_str(format_f64(val))
+}
+
+pub fn println_bool(val: bool) = {
+    println_str(format_bool(val))
+}

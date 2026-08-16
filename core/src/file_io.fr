@@ -1,0 +1,36 @@
+// core/file_io - stdio.h file primitives.
+//
+// Same two limitations as string.fr/mem.fr apply here, worse:
+// - fopen returns FILE* (an opaque handle, not a C string) - reused as
+//   String per mem.fr's documented stand-in-pointer rationale. Don't
+//   pass the returned handle to string functions.
+// - fclose, fputs, feof, and ferror all return plain `int` in the real
+//   C ABI - skipped entirely, same i32 gap documented in string.fr. This
+//   means files opened here today can't be closed or checked for EOF/
+//   errors from Frust - a real, current hole, not an oversight. Revisit
+//   once Frust has an i32 type.
+//
+// What's safe: fread/fwrite return size_t (64-bit, matches i64 exactly),
+// fgets returns char* (a real C string this time - FILE* isn't involved
+// in the return value).
+
+extern fn fopen(path: String, mode: String) -> String;
+extern fn fread(buf: String, size: i64, count: i64, stream: String) -> i64;
+extern fn fwrite(buf: String, size: i64, count: i64, stream: String) -> i64;
+extern fn fgets(buf: String, n: i64, stream: String) -> String;
+
+pub fn open(path: String, mode: String) -> String = {
+    fopen(path, mode)
+}
+
+pub fn read(buf: String, size: i64, count: i64, stream: String) -> i64 = {
+    fread(buf, size, count, stream)
+}
+
+pub fn write(buf: String, size: i64, count: i64, stream: String) -> i64 = {
+    fwrite(buf, size, count, stream)
+}
+
+pub fn read_line(buf: String, n: i64, stream: String) -> String = {
+    fgets(buf, n, stream)
+}
