@@ -2,6 +2,7 @@
   "name": "core",
   "version": "1.0.0",
   "type": "lib",
+  "namespace": "frust::core",
   "description": "Foundational Frust pod: string formatting/concat, console output, math/trig, libc string/mem/file/time primitives.",
   "exports": [
     "format_i64", "format_f64", "format_bool", "concat",

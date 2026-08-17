@@ -1,3 +1,4 @@
 build/
 output_pre_opt.ll
 output_post_opt.ll
+*.frpod
