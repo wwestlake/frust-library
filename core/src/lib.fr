@@ -1,19 +1,18 @@
 // core - foundational Frust pod: not "add-ons," the basics every other
 // pod in this library builds on.
 //
-// This file is required to exist (frate's convention for a lib pod's
-// entry point), but its own content is intentionally just this comment -
-// the actual functions live in the other files under src/, compiled
-// together with this one as a single unit via frust_compiler's multi-file
-// support:
-//
-//   console_io.fr  - string formatting/concatenation, println_*
-//   math.fr        - abs/min/max/clamp, trig, libm extras (pow/log/floor/...)
-//   string.fr      - libc string.h (only the 64-bit-safe parts - see file)
-//   mem.fr         - malloc/free/realloc/memcpy/memset/memmove
-//   file_io.fr     - fopen/fread/fwrite/fgets (no fclose yet - see file)
-//   time.fr        - clock() only (see file for why time() isn't here)
-//
+// Every file compiled into this pod is named explicitly below, in the
+// order it's compiled - frate reads these lines to build its file list,
+// not a directory scan. A .fr file sitting in src/ that isn't `use
+// self::`d here simply isn't part of the build; that's deliberate, not
+// a bug (see FrustCompiler's CMakeLists/frate history for why).
+use self::console_io; // string formatting/concatenation, println_*
+use self::math;       // abs/min/max/clamp, trig, libm extras (pow/log/floor/...)
+use self::string;     // libc string.h (only the 64-bit-safe parts - see file)
+use self::mem;        // malloc/free/realloc/memcpy/memset/memmove
+use self::file_io;    // fopen/fread/fwrite/fgets (no fclose yet - see file)
+use self::time;       // clock() only (see file for why time() isn't here)
+
 // string.fr/mem.fr/file_io.fr all document the same real gap: Frust has
 // no i32 type, so any libc function returning a plain C `int` can't be
 // wrapped safely yet (strcmp, fclose, feof, ...). Not silently missing -
