@@ -17,3 +17,64 @@ extern fn strlen(s: String) -> i64;
 pub fn len(s: String) -> i64 = {
     strlen(s)
 }
+
+// -----------------------------------------------------------------------
+// Parsing - atoll/atof are genuinely safe (both return a real 64-bit-
+// matching value, long long and double respectively), and fill a real
+// gap: without these, nothing in this pod could turn text into a number.
+// Neither validates its input (matches libc: garbage input just yields
+// 0), same "caller's problem" stance the rest of this pod already takes.
+// -----------------------------------------------------------------------
+
+extern fn atoll(s: String) -> i64;
+extern fn atof(s: String) -> f64;
+
+pub fn parse_i64(s: String) -> i64 = {
+    atoll(s)
+}
+
+pub fn parse_f64(s: String) -> f64 = {
+    atof(s)
+}
+
+// -----------------------------------------------------------------------
+// Search/copy - all pointer-in/pointer-out, so all width-safe by the same
+// reasoning as strlen above. strstr/strchr share mem.fr's documented
+// null-testability gap (a "not found" result is a null pointer Frust
+// can't yet test for) - only safe to use when the caller already knows
+// the match exists. strcpy/strcat/etc. have zero bounds checking, same
+// as in C - that's not a Frust limitation, it's what these functions are;
+// prefer strncpy/strncat when the destination's capacity isn't already
+// guaranteed large enough.
+// -----------------------------------------------------------------------
+
+extern fn strstr(haystack: String, needle: String) -> String;
+extern fn strchr(s: String, c: i64) -> String;
+extern fn strcpy(dest: String, src: String) -> String;
+extern fn strncpy(dest: String, src: String, n: i64) -> String;
+extern fn strcat(dest: String, src: String) -> String;
+extern fn strncat(dest: String, src: String, n: i64) -> String;
+
+pub fn find(haystack: String, needle: String) -> String = {
+    strstr(haystack, needle)
+}
+
+pub fn find_char(s: String, c: i64) -> String = {
+    strchr(s, c)
+}
+
+pub fn copy_into(dest: String, src: String) -> String = {
+    strcpy(dest, src)
+}
+
+pub fn copy_n_into(dest: String, src: String, n: i64) -> String = {
+    strncpy(dest, src, n)
+}
+
+pub fn append_into(dest: String, src: String) -> String = {
+    strcat(dest, src)
+}
+
+pub fn append_n_into(dest: String, src: String, n: i64) -> String = {
+    strncat(dest, src, n)
+}

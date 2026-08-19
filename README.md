@@ -15,7 +15,21 @@ mounted at `projects/06_frust_library`.
 
 | Pod | Type | Status |
 | :-- | :--- | :----- |
-| `core` | lib | scaffolded, unwritten |
+| `core` | lib | in progress - console_io, math, string, mem, file_io, time, random, process |
+
+`core`'s modules (see `core/src/lib.fr` for the compile-order file list,
+and each module's own header comment for what's safe to wrap given
+Frust's current lack of an `i32` type and real raw-pointer dereferencing):
+
+- **console_io** - formatting/printing (JIT-only for now)
+- **math** - abs/min/max/clamp, libm trig/exp/log
+- **string** - length, atoll/atof parsing, strstr/strcpy/strcat family
+- **mem** - malloc/realloc/free, memcpy/memset
+- **file_io** - fopen/fread/fwrite/fgets (no fclose - see file)
+- **time** - clock() only
+- **random** - dependency-free Park-Miller LCG PRNG (sidesteps the i32
+  gap entirely - pure i64 arithmetic, no libc rand())
+- **process** - exit/abort/getenv, panic()/assert() built on them
 
 ## Cross-pod calls
 

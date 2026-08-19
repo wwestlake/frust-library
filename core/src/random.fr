@@ -1,0 +1,66 @@
+// core/random - a small, dependency-free pseudo-random number generator.
+//
+// Deliberately NOT a libc rand()/srand() wrapper: rand() returns a plain
+// C `int` (32-bit) - the same return-width gap documented in string.fr
+// (see that file for the full explanation) makes its result unreadable
+// from Frust today. This sidesteps the gap entirely by never crossing an
+// extern boundary at all: it's the Lehmer / "Park-Miller minimal
+// standard" generator (Park & Miller, 1988) - pure i64 multiply and mod,
+// nothing else, so no return-width issue can exist. Not cryptographically
+// secure (no LCG is); fine for simulations, jitter, sampling, anything
+// that doesn't need adversarial unpredictability.
+//
+// Construction note: build the struct literal directly -
+// `let mut r: RandomState = RandomState { state: seed_from_clock() };` -
+// rather than through a wrapping constructor function. Frust's v1
+// codegen only tracks a variable's struct type when it's bound straight
+// to a struct literal; routing construction through a separate function
+// that returns the struct loses that tracking, and later method calls on
+// the variable fail to compile ("cannot call a method on an expression
+// of unknown struct type" - a real, current, documented v1 scoping limit
+// in Codegen.h's inferStructTypeName, not a bug this file works around).
+// Verified against a minimal repro before writing this file for real.
+
+struct RandomState {
+    state: i64
+}
+
+impl RandomState {
+    // Advances the generator and returns the new raw state: an integer
+    // in [1, 2147483646]. Every other method here is built on this one.
+    pub fn next_raw(&mut self) -> i64 = {
+        self.state = (self.state * 48271) % 2147483647;
+        self.state
+    }
+
+    // A pseudo-random i64 spanning a wider range than next_raw alone
+    // (which is always positive and < 2^31) - remixes two raw draws.
+    pub fn next_i64(&mut self) -> i64 = {
+        let hi: i64 = self.next_raw();
+        let lo: i64 = self.next_raw();
+        hi * 2147483647 + lo
+    }
+
+    // Uniform in [0.0, 1.0).
+    pub fn next_f64(&mut self) -> f64 = {
+        let r: i64 = self.next_raw();
+        (r - 1) / 2147483646.0
+    }
+
+    // Uniform i64 in [lo, hi) - hi exclusive, matches common convention.
+    // Caller must pass lo < hi; no checking is done (matches this pod's
+    // house style of not validating what a caller controls entirely).
+    pub fn next_range(&mut self, lo: i64, hi: i64) -> i64 = {
+        let span: i64 = hi - lo;
+        lo + (self.next_raw() % span)
+    }
+}
+
+// A reasonable default seed derived from the system clock. Guards
+// against clock() returning 0 (outside the LCG's required [1, m-1] seed
+// range - a zero seed would leave the generator permanently stuck at 0)
+// by falling back to a fixed nonzero seed in that case.
+pub fn seed_from_clock() -> i64 = {
+    let t: i64 = clock();
+    if t == 0 { 12345 } else { t }
+}

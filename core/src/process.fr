@@ -1,0 +1,38 @@
+// core/process - stdlib.h process control, plus panic/assert built on it.
+//
+// exit()/abort() have no return value at all (both are C [[noreturn]]
+// void functions), so neither hits the return-width gap documented in
+// string.fr. exit's `int status` argument is genuinely safe too, for the
+// same reason mem.fr's memset(..., val: i64, ...) already is: an
+// argument-side int parameter only reads the callee's low 32 bits - no
+// unspecified-upper-bits problem, unlike a 32-bit *return*. See string.fr
+// for the full explanation of why this file treats arguments and return
+// values differently.
+//
+// getenv is real and safe on the pointer/argument side (String in,
+// String out - both pointer-shaped, no width issue) but shares mem.fr's
+// documented null-testability gap: it returns a null pointer when the
+// variable isn't set, and Frust has no null literal or pointer-equality
+// test yet to detect that case. Safe to use only when the caller already
+// knows the variable is set.
+extern fn exit(code: i64);
+extern fn abort();
+extern fn getenv(name: String) -> String;
+
+pub fn env(name: String) -> String = {
+    getenv(name)
+}
+
+// Prints msg, then terminates the process with exit code 1. Depends on
+// console_io.fr's println_str - lib.fr must compile console_io before
+// this file (it already does).
+pub fn panic(msg: String) = {
+    println_str(msg);
+    exit(1)
+}
+
+pub fn assert(cond: bool, msg: String) = {
+    if !cond {
+        panic(msg)
+    }
+}

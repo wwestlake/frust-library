@@ -12,6 +12,11 @@ use self::string;     // libc string.h (only the 64-bit-safe parts - see file)
 use self::mem;        // malloc/free/realloc/memcpy/memset/memmove
 use self::file_io;    // fopen/fread/fwrite/fgets (no fclose yet - see file)
 use self::time;       // clock() only (see file for why time() isn't here)
+use self::random;     // dependency-free PRNG (Park-Miller LCG) - needs
+                       // time's clock() for its default seed, so must
+                       // compile after it
+use self::process;    // exit/abort/getenv, panic/assert - panic() calls
+                       // println_str, so must compile after console_io
 
 // string.fr/mem.fr/file_io.fr all document the same real gap: Frust has
 // no i32 type, so any libc function returning a plain C `int` can't be
