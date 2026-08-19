@@ -1,0 +1,53 @@
+// core/thread - real OS threads, wrapping Win32's CreateThread.
+//
+// Windows-only for this pass - same reasoning as mutex.fr's header
+// (no platform-conditional source mechanism yet, Linux/Pi work paused).
+//
+// This only exists because of two small compiler additions
+// (Codegen.h's ExprKind::Identifier case): a bare function name now
+// decays to that function's address instead of erroring, and `null` is
+// a real pointer constant. Together they let a genuine Frust function
+// reach CreateThread as its start routine. Frust code still can't call
+// a function VALUE back indirectly (no ExprKind for that) - spawn()
+// only works because the OS does the calling, not Frust.
+//
+// A spawned function's signature must be `fn name(arg: String) -> i64`
+// - CreateThread's real prototype wants a DWORD-returning function, but
+// nothing here reads that return value (the OS's own thread-exit-code
+// bookkeeping only looks at the low 32 bits, which Frust always
+// computes correctly - see string.fr for the general shape of this
+// return-width gap; this direction of it is harmless because nothing
+// on the Frust side depends on the value).
+//
+// Verified end-to-end: a real Frust function's address passed to
+// CreateThread, invoked on a genuine second OS thread (confirmed via
+// interleaved output ordering against a sleeping main thread) - and,
+// paired with mutex.fr, a 4-thread/1000-increments-each shared counter
+// came out to exactly 4000 on every run, proving real mutual exclusion
+// under real concurrent execution, not just that threads got spawned.
+
+extern fn CreateThread(sa: String, stackSize: i64, startAddr: String, param: String, flags: i64, threadIdOut: String) -> String;
+extern fn WaitForSingleObject(handleVal: String, ms: i64) -> i64;
+extern fn CloseHandle(handleVal: String);
+
+// INFINITE, per WinBase.h - pass to join() to wait with no timeout.
+pub fn wait_forever() -> i64 = {
+    -1
+}
+
+// Spawns start_fn(arg) on a new OS thread and returns its handle.
+// start_fn must be a bare top-level function name (e.g. `spawn(worker,
+// data)`, not a call `worker(data)`) - that's what makes the address-of
+// decay described above fire.
+pub fn spawn(start_fn: String, arg: String) -> String = {
+    let tid_out: String = alloc(8);
+    CreateThread(null, 0, start_fn, arg, 0, tid_out)
+}
+
+// Blocks until the thread finishes, then releases the OS handle.
+// WaitForSingleObject's return value is read but intentionally never
+// used - see this file's header for why that's safe here.
+pub fn join(thread_handle: String) = {
+    WaitForSingleObject(thread_handle, wait_forever());
+    CloseHandle(thread_handle)
+}

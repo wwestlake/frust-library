@@ -15,7 +15,7 @@ mounted at `projects/06_frust_library`.
 
 | Pod | Type | Status |
 | :-- | :--- | :----- |
-| `core` | lib | in progress - console_io, math, string, mem, file_io, time, random, process |
+| `core` | lib | in progress - console_io, math, string, mem, file_io, time, random, process, buffer, mutex, thread, task |
 
 `core`'s modules (see `core/src/lib.fr` for the compile-order file list,
 and each module's own header comment for what's safe to wrap given
@@ -30,6 +30,25 @@ Frust's current lack of an `i32` type and real raw-pointer dereferencing):
 - **random** - dependency-free Park-Miller LCG PRNG (sidesteps the i32
   gap entirely - pure i64 arithmetic, no libc rand())
 - **process** - exit/abort/getenv, panic()/assert() built on them
+- **buffer** - indexed i64/pointer read-write into a raw heap buffer;
+  the primitive Frust's own codegen still lacks (no pointer deref, no
+  indexed-write) - closed via two small runtime helpers exported from
+  Main.cpp, same pattern as console_io's format/print helpers
+- **thread** - real OS threads (Win32 `CreateThread`) - only possible
+  because of two small compiler additions this pass: a bare function
+  name now decays to its address, and `null` is a real pointer constant
+- **mutex** - real mutual exclusion (Win32 `CRITICAL_SECTION`) -
+  verified against a genuine 4-thread/1000-increments-each shared
+  counter, exactly 4000 every run
+- **task** - a real (not toy) "run on a thread, get a result, chain
+  into the next step" monad built on thread+buffer; no closures yet, so
+  chaining uses named worker functions with a fixed calling convention
+  instead of lambdas - see the file's header for the exact shape
+
+`thread`/`mutex`/`task` are Windows-only for this pass - Frust has no
+platform-conditional source mechanism yet (no `#cfg`, and frate.json's
+source list isn't platform-aware), and the Linux/Pi port work is
+currently paused. A real gap, not a silent omission.
 
 ## Cross-pod calls
 

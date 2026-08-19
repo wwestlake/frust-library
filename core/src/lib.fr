@@ -17,6 +17,14 @@ use self::random;     // dependency-free PRNG (Park-Miller LCG) - needs
                        // compile after it
 use self::process;    // exit/abort/getenv, panic/assert - panic() calls
                        // println_str, so must compile after console_io
+use self::buffer;      // indexed i64/pointer read-write into a raw
+                       // buffer - needs mem's alloc/dealloc naming
+                       // convention but no compile-order dependency
+use self::mutex;       // Win32 CRITICAL_SECTION wrapper - needs mem's
+                       // alloc/dealloc, must compile after mem
+use self::thread;       // Win32 CreateThread wrapper - needs mem's alloc
+use self::task;         // the run/then task monad - needs thread AND
+                       // buffer, must compile after both
 
 // string.fr/mem.fr/file_io.fr all document the same real gap: Frust has
 // no i32 type, so any libc function returning a plain C `int` can't be

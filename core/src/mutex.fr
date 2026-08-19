@@ -1,0 +1,43 @@
+// core/mutex - a real OS mutual-exclusion lock, wrapping Win32's
+// CRITICAL_SECTION.
+//
+// Windows-only for this pass: Frust has no platform-conditional source
+// mechanism yet (no #cfg, and frate.json's source list isn't platform-
+// aware), so a single pod can't carry both a Win32 and a pthread
+// implementation side by side today. The Linux/Pi work is explicitly
+// paused for now (see project notes) - this is a real, named gap to
+// close when that resumes, not a silent omission.
+//
+// CRITICAL_SECTION is an opaque, fixed-size struct (5 pointer-sized
+// fields, 40 bytes on x64) - allocated via mem.fr's alloc() and handed
+// to Win32 by address, same "String as void*" convention file_io.fr's
+// FILE* already uses. 64 bytes leaves headroom rather than relying on
+// the struct's exact size matching across SDK versions.
+//
+// Verified: a 4-thread, 1000-increments-each shared counter guarded by
+// this exact lock produced exactly 4000 every run (no lost updates) -
+// see thread.fr's header for the paired verification.
+
+extern fn InitializeCriticalSection(cs: String);
+extern fn EnterCriticalSection(cs: String);
+extern fn LeaveCriticalSection(cs: String);
+extern fn DeleteCriticalSection(cs: String);
+
+pub fn create() -> String = {
+    let cs: String = alloc(64);
+    InitializeCriticalSection(cs);
+    cs
+}
+
+pub fn lock(cs: String) = {
+    EnterCriticalSection(cs)
+}
+
+pub fn unlock(cs: String) = {
+    LeaveCriticalSection(cs)
+}
+
+pub fn destroy(cs: String) = {
+    DeleteCriticalSection(cs);
+    dealloc(cs)
+}

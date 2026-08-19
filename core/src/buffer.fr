@@ -1,0 +1,49 @@
+// core/buffer - indexed scalar read/write into a raw malloc'd buffer.
+//
+// The one primitive Frust's own codegen still doesn't have: pointer
+// dereference (`*ptr`) is parsed but explicitly unimplemented
+// (Codegen.h's UnaryOp::Deref case prints "not supported yet" and
+// bails), and Index-as-assignment-target isn't implemented either
+// (compileAssign only handles a struct-field LHS). Every data structure
+// that needs to mutate an element by index - a growable Vec, a shared
+// counter two threads both touch, a task queue - runs straight into that
+// gap. This file closes it the same way console_io.fr already closes
+// Frust's missing string-formatting primitives: two tiny fixed-arity C
+// helpers exported from the host process (frust_buf_get_i64/
+// frust_buf_set_i64, in frust_compiler's and the IDE's Main.cpp - kept
+// identical, same convention as every other frust_* runtime export).
+//
+// idx is an ELEMENT index (each unit is 8 bytes, matching i64), not a
+// byte offset - `alloc(n * 8)` gives you room for n elements. No bounds
+// checking, same "caller's problem" stance as raw C pointer arithmetic
+// everywhere else in this pod.
+
+extern fn frust_buf_get_i64(base: String, idx: i64) -> i64;
+extern fn frust_buf_set_i64(base: String, idx: i64, val: i64);
+
+pub fn get_i64(base: String, idx: i64) -> i64 = {
+    frust_buf_get_i64(base, idx)
+}
+
+pub fn set_i64(base: String, idx: i64, val: i64) = {
+    frust_buf_set_i64(base, idx, val)
+}
+
+// Pointer-slot sibling of the above - lets a buffer hold other pointers
+// (another buffer's address, a thread handle, etc.) without needing a
+// pointer<->i64 cast Frust's coerceToType doesn't implement. See task.fr
+// for why this matters: a struct built in one function's stack frame
+// can't safely be handed to a spawned thread that outlives that frame
+// (see random.fr for the related struct-tracking limitation this also
+// sidesteps) - pack its would-be fields into a heap buffer via these
+// instead.
+extern fn frust_buf_get_ptr(base: String, idx: i64) -> String;
+extern fn frust_buf_set_ptr(base: String, idx: i64, val: String);
+
+pub fn get_ptr(base: String, idx: i64) -> String = {
+    frust_buf_get_ptr(base, idx)
+}
+
+pub fn set_ptr(base: String, idx: i64, val: String) = {
+    frust_buf_set_ptr(base, idx, val)
+}

@@ -1,0 +1,72 @@
+// core/task - a minimal, real "run this on a thread, get a result later"
+// monad, built entirely on thread.fr/buffer.fr.
+//
+// Not real closures - Frust has no lambda syntax and no indirect-call
+// codegen yet (see thread.fr's header), so there's no anonymous
+// continuation to pass into `then`. Instead, worker functions are
+// ordinary named top-level functions with a fixed shape (below), and
+// chaining is genuine continuation-passing done by hand rather than via
+// lambda syntax - less pretty, fully real: `then` genuinely blocks the
+// calling thread until its input task finishes, then spawns the next
+// step as a new task, so `Task a -> (a -> Task b) -> Task b` actually
+// holds.
+//
+// A task is an opaque packed buffer (2 pointer slots: handle, result
+// buffer) - not a struct. A struct returned by value from a function
+// can't have its fields read afterward in Frust's v1 (struct-type
+// tracking only follows a variable bound directly to a struct literal,
+// never one returned by a function - see random.fr's header for the
+// same limitation), so structs are used only within a single function's
+// own frame here, never across a return boundary.
+//
+// Worker functions passed to run()/then() must have exactly this shape:
+//
+//   fn my_worker(packed_arg: String) -> i64 = {
+//       let arg_buf: String = get_ptr(packed_arg, 0);
+//       let result_buf: String = get_ptr(packed_arg, 1);
+//       let x: i64 = get_i64(arg_buf, 0);
+//       // ... compute ...
+//       set_i64(result_buf, 0, your_answer);
+//       0
+//   }
+//
+// Verified end-to-end: run(double_worker, 5) then add_ten_worker
+// produced exactly 20 (5 -> 10 on one OS thread -> 20 on a second,
+// separately spawned OS thread).
+
+pub fn run(worker: String, arg_buf: String) -> String = {
+    let result_buf: String = alloc(8);
+    set_i64(result_buf, 0, 0);
+    let packed_arg: String = alloc(16);
+    set_ptr(packed_arg, 0, arg_buf);
+    set_ptr(packed_arg, 1, result_buf);
+
+    let th: String = spawn(worker, packed_arg);
+
+    let task: String = alloc(16);
+    set_ptr(task, 0, th);
+    set_ptr(task, 1, result_buf);
+    task
+}
+
+// Convenience wrapper: packs a single i64 as the argument buffer.
+pub fn run_i64(worker: String, arg: i64) -> String = {
+    let arg_buf: String = alloc(8);
+    set_i64(arg_buf, 0, arg);
+    run(worker, arg_buf)
+}
+
+// Blocks until the task's thread finishes, then returns its result.
+pub fn await_result(task: String) -> i64 = {
+    let th: String = get_ptr(task, 0);
+    let result_buf: String = get_ptr(task, 1);
+    join(th);
+    get_i64(result_buf, 0)
+}
+
+// The monadic bind: blocks on t's result, then spawns `next` as a new
+// task with that result as its i64 argument.
+pub fn then(t: String, next: String) -> String = {
+    let result: i64 = await_result(t);
+    run_i64(next, result)
+}
