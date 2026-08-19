@@ -15,7 +15,7 @@ mounted at `projects/06_frust_library`.
 
 | Pod | Type | Status |
 | :-- | :--- | :----- |
-| `core` | lib | in progress - console_io, math, string, mem, file_io, time, random, process, buffer, mutex, thread, task |
+| `core` | lib | in progress - console_io, math, string, mem, file_io, time, random, process, buffer, mutex, thread, task, curry |
 
 `core`'s modules (see `core/src/lib.fr` for the compile-order file list,
 and each module's own header comment for what's safe to wrap given
@@ -44,6 +44,11 @@ Frust's current lack of an `i32` type and real raw-pointer dereferencing):
   into the next step" monad built on thread+buffer; no closures yet, so
   chaining uses named worker functions with a fixed calling convention
   instead of lambdas - see the file's header for the exact shape
+
+- **curry** - partial application (`curry2`/`apply1`) for a 2-argument
+  function, built on the same indirect-call compiler support as `task` -
+  verified with the same bound partial reused across multiple different
+  second arguments, producing correct results each time
 
 `thread`/`mutex`/`task` are Windows-only for this pass - Frust has no
 platform-conditional source mechanism yet (no `#cfg`, and frate.json's

@@ -1,0 +1,35 @@
+// core/curry - partial application of a 2-argument function.
+//
+// Only possible because of this pass's other compiler addition: Frust
+// can now call a function VALUE indirectly, not just a statically-known
+// name (see thread.fr's header for the address-of-decay half of this;
+// Codegen.h's compileIndirectCall is the calling half). There's still
+// no real closure type - `curry2` doesn't return something you can call
+// with ordinary syntax like `partial(b)`; it returns an opaque packed
+// buffer (function address + bound first argument) that `apply1` knows
+// how to unpack and actually invoke. Less ergonomic than real currying
+// syntax, fully real: the original function genuinely only runs once
+// both arguments are in hand, and the bound argument is genuinely fixed
+// at curry2() time, not re-passed at apply1() time.
+//
+// Scoped to 2-argument functions curried on the first argument for v1 -
+// curry3/apply2 (and beyond) are the same mechanical pattern, just not
+// written yet; not a hard limit, just unwritten.
+//
+// Verified: curry2(add, 3) then apply1(_, 4) produced 7, and the same
+// partial applied to different second arguments produced different
+// results each time (the binding isn't accidentally re-evaluating add
+// eagerly at curry2() time).
+
+pub fn curry2(f: String, bound_a: i64) -> String = {
+    let p: String = alloc(16);
+    set_ptr(p, 0, f);
+    set_i64(p, 1, bound_a);
+    p
+}
+
+pub fn apply1(partial: String, b: i64) -> i64 = {
+    let f: String = get_ptr(partial, 0);
+    let a: i64 = get_i64(partial, 1);
+    f(a, b)
+}
