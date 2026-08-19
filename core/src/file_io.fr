@@ -1,23 +1,25 @@
 // core/file_io - stdio.h file primitives.
 //
-// Same two limitations as string.fr/mem.fr apply here, worse:
-// - fopen returns FILE* (an opaque handle, not a C string) - reused as
-//   String per mem.fr's documented stand-in-pointer rationale. Don't
-//   pass the returned handle to string functions.
-// - fclose, fputs, feof, and ferror all return plain `int` in the real
-//   C ABI - skipped entirely, same i32 gap documented in string.fr. This
-//   means files opened here today can't be closed or checked for EOF/
-//   errors from Frust - a real, current hole, not an oversight. Revisit
-//   once Frust has an i32 type.
+// fopen returns FILE* (an opaque handle, not a C string) - reused as
+// String per mem.fr's documented stand-in-pointer rationale. Don't pass
+// the returned handle to string functions.
 //
-// What's safe: fread/fwrite return size_t (64-bit, matches i64 exactly),
-// fgets returns char* (a real C string this time - FILE* isn't involved
-// in the return value).
+// fclose/feof/ferror really do return plain `int` in the real C ABI,
+// but (see string.fr's header for the full story) that's not actually a
+// problem - `i32` is a real, working Frust type. These were wrongly
+// skipped in an earlier revision; fixed here, so files opened through
+// this pod can now actually be closed and checked for EOF/errors.
+//
+// fread/fwrite return size_t (64-bit, matches i64 exactly); fgets
+// returns a real char* (FILE* isn't involved in that return value).
 
 extern fn fopen(path: String, mode: String) -> String;
 extern fn fread(buf: String, size: i64, count: i64, stream: String) -> i64;
 extern fn fwrite(buf: String, size: i64, count: i64, stream: String) -> i64;
 extern fn fgets(buf: String, n: i64, stream: String) -> String;
+extern fn fclose(stream: String) -> i32;
+extern fn feof(stream: String) -> i32;
+extern fn ferror(stream: String) -> i32;
 
 pub fn open(path: String, mode: String) -> String = {
     fopen(path, mode)
@@ -33,4 +35,19 @@ pub fn write(buf: String, size: i64, count: i64, stream: String) -> i64 = {
 
 pub fn read_line(buf: String, n: i64, stream: String) -> String = {
     fgets(buf, n, stream)
+}
+
+// Returns 0 on success, EOF (-1) on failure - matches libc's own fclose
+// convention rather than converting to bool, since a caller may care
+// about the exact failure code from ferror separately.
+pub fn close(stream: String) -> i32 = {
+    fclose(stream)
+}
+
+pub fn is_eof(stream: String) -> bool = {
+    feof(stream) != 0
+}
+
+pub fn has_error(stream: String) -> bool = {
+    ferror(stream) != 0
 }

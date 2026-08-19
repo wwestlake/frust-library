@@ -70,3 +70,15 @@ pub fn then(t: String, next: String) -> String = {
     let result: i64 = await_result(t);
     run_i64(next, result)
 }
+
+// Non-blocking poll: true if the task's thread has already finished.
+// Only possible now that WaitForSingleObject is correctly declared
+// `-> i32` (thread.fr) instead of the width-unsafe `-> i64` an earlier
+// revision used - a 0ms wait's real WAIT_OBJECT_0/WAIT_TIMEOUT result
+// couldn't be trusted before that fix. Does not release the thread
+// handle - still call await_result (or join directly) once you're done
+// polling, or the handle leaks.
+pub fn is_ready(task: String) -> bool = {
+    let th: String = get_ptr(task, 0);
+    WaitForSingleObject(th, 0) == 0
+}

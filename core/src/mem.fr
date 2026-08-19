@@ -26,6 +26,10 @@ extern fn free(ptr: String);
 extern fn memcpy(dest: String, src: String, n: i64) -> String;
 extern fn memmove(dest: String, src: String, n: i64) -> String;
 extern fn memset(dest: String, val: i64, n: i64) -> String;
+// memcmp returns a real `int` - see string.fr's header for why that's
+// fine (i32 works correctly in Frust; an earlier revision skipped
+// functions like this one on a wrong assumption).
+extern fn memcmp(a: String, b: String, n: i64) -> i32;
 
 pub fn alloc(size: i64) -> String = {
     malloc(size)
@@ -41,4 +45,8 @@ pub fn copy(dest: String, src: String, n: i64) -> String = {
 
 pub fn fill(dest: String, val: i64, n: i64) -> String = {
     memset(dest, val, n)
+}
+
+pub fn compare(a: String, b: String, n: i64) -> i32 = {
+    memcmp(a, b, n)
 }

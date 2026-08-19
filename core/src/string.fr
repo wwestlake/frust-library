@@ -1,17 +1,19 @@
 // core/string - libc string.h functions, wrapped where Frust's type
 // system can represent them correctly.
 //
-// Frust has no i32 - only i64. That blocks wrapping any libc function
-// whose real C signature returns a plain `int` (32-bit): strcmp,
-// strncmp, memcmp are all skipped here for exactly that reason. The C
-// ABI (both x86-64 SysV and AArch64 AAPCS64) leaves the upper 32 bits of
-// a 32-bit return register unspecified - declaring such a function as
-// `-> i64` in Frust would read garbage in those bits, not just a
-// harmlessly-truncated value. This isn't a style choice, it's a real gap:
-// fixing it means adding an i32 type to Frust, not wrapping harder.
+// Earlier revisions of this file assumed Frust had no way to represent
+// a 32-bit `int` return, and skipped strcmp/strncmp/memcmp entirely for
+// that reason. That assumption was wrong - Codegen.h's resolveType
+// already maps `i32`/`u32` to a real LLVM i32, and compileBinary already
+// auto-sign-extends a mismatched int width when comparing against an
+// i64 literal. Verified directly: `strcmp("abc","abc")==0`,
+// `strcmp("abc","abd")<0`, `strcmp("abd","abc")>0` all came back correct
+// through an `extern fn ... -> i32` declaration. There was never a
+// compiler gap here, just an untested assumption - see strcmp/strncmp
+// below.
 //
-// What's below is what's actually safe: strlen returns size_t, which is
-// 64-bit on both target platforms - matches i64 exactly, no width issue.
+// strlen returns size_t, which is 64-bit on both target platforms -
+// matches i64 exactly regardless of the above.
 extern fn strlen(s: String) -> i64;
 
 pub fn len(s: String) -> i64 = {
@@ -77,4 +79,24 @@ pub fn append_into(dest: String, src: String) -> String = {
 
 pub fn append_n_into(dest: String, src: String, n: i64) -> String = {
     strncat(dest, src, n)
+}
+
+// -----------------------------------------------------------------------
+// Comparison - real i32 returns, no width games needed (see header).
+// Result follows libc convention: 0 if equal, <0 if a<b, >0 if a>b.
+// -----------------------------------------------------------------------
+
+extern fn strcmp(a: String, b: String) -> i32;
+extern fn strncmp(a: String, b: String, n: i64) -> i32;
+
+pub fn compare(a: String, b: String) -> i32 = {
+    strcmp(a, b)
+}
+
+pub fn compare_n(a: String, b: String, n: i64) -> i32 = {
+    strncmp(a, b, n)
+}
+
+pub fn equals(a: String, b: String) -> bool = {
+    strcmp(a, b) == 0
 }

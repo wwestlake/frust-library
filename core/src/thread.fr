@@ -27,7 +27,12 @@
 // under real concurrent execution, not just that threads got spawned.
 
 extern fn CreateThread(sa: String, stackSize: i64, startAddr: String, param: String, flags: i64, threadIdOut: String) -> String;
-extern fn WaitForSingleObject(handleVal: String, ms: i64) -> i64;
+// Real DWORD (i32) return - was declared -> i64 in an earlier revision
+// under the wrong assumption that i32 didn't work in Frust (see
+// string.fr's header for the correction). Matters now: task.fr's
+// is_ready() needs the real WAIT_OBJECT_0 (0) vs WAIT_TIMEOUT (258)
+// value, not a discarded one.
+extern fn WaitForSingleObject(handleVal: String, ms: i64) -> i32;
 extern fn CloseHandle(handleVal: String);
 
 // INFINITE, per WinBase.h - pass to join() to wait with no timeout.

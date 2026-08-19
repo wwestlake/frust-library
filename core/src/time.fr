@@ -1,12 +1,19 @@
 // core/time - time.h primitives.
 //
-// Only clock() is wrapped here. time(), difftime(), etc. all either
-// return plain `int`-adjacent types or take a pointer-to-output-param
-// that Frust can't express cleanly yet (no way to pass a null String
-// literal). clock() has neither problem: no args, and clock_t is a
-// 64-bit `long` on both target platforms - matches i64 exactly.
+// clock_t and time_t are both a 64-bit `long` on both target platforms -
+// matches i64 exactly. time() takes a pointer-to-output-param
+// (`time_t time(time_t *tloc)`) - was skipped in an earlier revision for
+// lacking a way to pass a null pointer; Codegen.h's `null` identifier
+// (added this pass) closes that, so passing null and using the return
+// value directly works fine.
 extern fn clock() -> i64;
+extern fn time(tloc: String) -> i64;
 
 pub fn now_ticks() -> i64 = {
     clock()
+}
+
+// Current Unix epoch time, in seconds.
+pub fn now_epoch() -> i64 = {
+    time(null)
 }
