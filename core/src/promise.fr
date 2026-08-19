@@ -1,0 +1,24 @@
+// core/promise - the one piece task.fr's run/await_result/then didn't
+// have: a promise that's already resolved, no thread needed, so
+// generic code can chain uniformly whether a value came from real async
+// work or was already known - same shape (Promise == Task's packed
+// [handle, result_buf] buffer) either way, so await_result/then work on
+// it unchanged.
+//
+// Implemented as a real (trivial) spawned thread rather than a fake/
+// null handle, on purpose: keeping one uniform representation for both
+// cases is simpler and more honest than a tagged union Frust can't
+// express yet (no sum types). The thread just writes the value and
+// exits - real, cheap, correct.
+
+fn resolve_worker(packed_arg: String) -> i64 = {
+    let arg_buf: String = get_ptr(packed_arg, 0);
+    let result_buf: String = get_ptr(packed_arg, 1);
+    let v: i64 = get_i64(arg_buf, 0);
+    set_i64(result_buf, 0, v);
+    0
+}
+
+pub fn resolve(v: i64) -> String = {
+    run_i64(resolve_worker, v)
+}

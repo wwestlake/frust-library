@@ -27,6 +27,8 @@ use self::task;         // the run/then task monad - needs thread AND
                        // buffer, must compile after both
 use self::curry;        // partial application (curry2/apply1) - needs
                        // buffer, must compile after it
+use self::promise;      // resolve() - an already-done Task/Promise -
+                       // needs task's run_i64, must compile after it
 
 // string.fr/mem.fr/file_io.fr all document the same real gap: Frust has
 // no i32 type, so any libc function returning a plain C `int` can't be
