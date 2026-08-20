@@ -15,11 +15,40 @@
 // process_task.fr for how results actually cross the boundary (an
 // environment variable naming matching input/output files).
 
-extern fn _spawnv(mode: i64, cmdname: String, argv: String) -> i64;
+// _spawnv's real C return type is intptr_t - but under P_NOWAIT it's
+// documented to be a Win32 process HANDLE (msvcrt's own _cwait expects
+// exactly that back), and a HANDLE is pointer-shaped, not integer-
+// shaped. Declared returning String (this pod's pointer stand-in), not
+// i64, for exactly that reason: msvcrt's own _cwait was tried first and
+// hung indefinitely even after the spawned child had already exited (a
+// real, reproduced bug - see wait_process's comment for what actually
+// works). Declaring the return as a pointer lets it flow straight into
+// WaitForSingleObject with no int<->ptr cast Frust doesn't have -
+// confirmed correct in isolation (WaitForSingleObject on this exact
+// value returned WAIT_OBJECT_0 immediately, no hang).
+extern fn _spawnv(mode: i64, cmdname: String, argv: String) -> String;
 extern fn _putenv(envstring: String) -> i32;
 
 pub fn wait_mode() -> i64 = {
-    0 // P_WAIT, per <process.h>
+    0 // P_WAIT, per <process.h> - spawn_wait*() blocks until the child exits
+}
+
+pub fn nowait_mode() -> i64 = {
+    1 // P_NOWAIT - spawn_async*() returns immediately with a process
+      // handle; call wait_process() on it later when you actually need
+      // the result, not before.
+}
+
+// Blocks until the process behind proc_handle (from a spawn_async*
+// function) exits, then releases the handle - reuses thread.fr's own
+// WaitForSingleObject/CloseHandle (already declared there, compiled
+// before this file - see lib.fr's ordering) rather than msvcrt's
+// _cwait, which hung indefinitely in testing even on an already-exited
+// child. Same proven mechanism thread.fr's join() already uses for OS
+// threads; a spawned process's handle works identically here.
+pub fn wait_process(proc_handle: String) = {
+    WaitForSingleObject(proc_handle, wait_forever());
+    CloseHandle(proc_handle)
 }
 
 // _spawnv does NOT quote argv elements when it reconstructs the single
@@ -57,10 +86,25 @@ pub fn argv2(arg0: String, arg1: String) -> String = {
 }
 
 // Spawns cmdname with a 2-element argv [cmdname, arg1], blocks until it
-// exits, returns its exit code.
-pub fn spawn_wait2(cmdname: String, arg1: String) -> i64 = {
+// exits. _spawnv's own return under P_WAIT is a real exit code (an
+// integer, not a handle) - but it's declared returning String above
+// (needed for the P_NOWAIT/handle case spawn_async2 uses, and Frust
+// resolves one `extern fn` name to one signature everywhere it's
+// called). No caller of spawn_wait2 currently reads its result, so
+// this stays void rather than forcing a meaningless pointer-typed
+// "exit code" on callers - if you need the real exit code, that's a
+// real, separate addition (a second export using a different C helper,
+// not a signature this function can safely claim today).
+pub fn spawn_wait2(cmdname: String, arg1: String) = {
     let argv: String = argv2(cmdname, arg1);
-    _spawnv(wait_mode(), cmdname, argv)
+    _spawnv(wait_mode(), cmdname, argv);
+}
+
+// Same as spawn_wait2, but returns immediately with a process handle -
+// pass it to wait_process() later when you actually need the result.
+pub fn spawn_async2(cmdname: String, arg1: String) -> String = {
+    let argv: String = argv2(cmdname, arg1);
+    _spawnv(nowait_mode(), cmdname, argv)
 }
 
 // Sets an environment variable the CHILD process will inherit - call
@@ -71,9 +115,9 @@ pub fn set_env(name: String, value: String) = {
     _putenv(env_entry)
 }
 
-// Spawns cmdname with a single-element argv, blocks until it exits,
-// returns its exit code.
-pub fn spawn_wait(cmdname: String) -> i64 = {
+// Spawns cmdname with a single-element argv, blocks until it exits.
+// Same void-return reasoning as spawn_wait2 above.
+pub fn spawn_wait(cmdname: String) = {
     let argv: String = argv1(cmdname);
-    _spawnv(wait_mode(), cmdname, argv)
+    _spawnv(wait_mode(), cmdname, argv);
 }

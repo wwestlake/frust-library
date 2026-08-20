@@ -29,21 +29,65 @@
 //       0
 //   }
 //
-// Synchronous only for v1 - spawn_wait blocks until the child exits. A
-// true async version needs _spawnv's P_NOWAIT + _cwait, a natural v2
-// layered on this same file-IPC convention, not implemented here.
+// run()/await_result() below is the synchronous v1 path (spawn_wait2
+// blocks until the child exits). run_async()/await_result_async() is
+// the real async version, layered on procspawn.fr's P_NOWAIT +
+// WaitForSingleObject (not msvcrt's _cwait, which hung indefinitely in
+// testing - see procspawn.fr's header for the full story).
 //
-// Verified: a real second `frust_compiler.exe` process, spawned against
-// a worker file that doubles its input, correctly read the value this
-// process wrote to its input file, and the doubled result this process
-// read back from the output file matched exactly.
+// Verified (sync): a real second `frust_compiler.exe` process, spawned
+// against a worker file that doubles its input, correctly read the
+// value this process wrote to its input file, and the doubled result
+// this process read back from the output file matched exactly.
+//
+// Verified (async): two tasks spawned back-to-back with NEITHER call
+// blocking before the next spawn - each worker sleeps 500ms - completed
+// in ~500ms total wall-clock, not ~1000ms, confirming they genuinely ran
+// concurrently rather than the second silently waiting on the first.
 
 pub fn next_task_id() -> i64 = {
-    // Reasonably unique for this process's own sequential use (see
-    // run()'s doc - each call fully completes, spawn+wait+read, before
-    // the next one starts, so clock()'s resolution never has to
-    // distinguish two truly concurrent pending tasks). Not a real UUID.
+    // Safe ONLY for the synchronous run() below: each call fully
+    // completes (spawn+wait+read) before the next one starts, so
+    // clock()'s resolution never has to distinguish two truly
+    // concurrent pending tasks. NOT safe for run_async() - see
+    // next_task_id_async().
     clock()
+}
+
+// run_async() callers may spawn several tasks back-to-back with no wait
+// between them, so clock() alone can collide (two spawns landing in the
+// same tick is entirely plausible on a fast CPU). task_salt is an
+// explicit, caller-supplied distinguishing value - pass a different one
+// for each task you're spawning concurrently (0, 1, 2, ... is fine).
+// Not a real UUID, but a real, honest uniqueness contract rather than
+// hoping clock() alone is enough.
+pub fn next_task_id_async(task_salt: i64) -> i64 = {
+    (clock() * 1000000) + task_salt
+}
+
+// console_io.fr's concat() returns a pointer into a small ROTATING
+// buffer pool (16 slots) - fine for using a string within the same
+// expression, actively unsafe to stash the returned pointer anywhere
+// longer-lived (see console_io.fr's header). out_path needs to survive
+// across spawn/wait (and, in run_async's case, other run_async() calls'
+// own concat/format_i64 usage) before it's actually read back - real
+// enough churn to cycle the pool and silently hand back a stale/
+// corrupted pointer. This makes a genuine independent copy via a fresh
+// heap allocation, so it stays valid regardless of how many further
+// format/concat calls happen elsewhere before it's used.
+//
+// This was a real, reproduced bug, not a theoretical one: run_async's
+// original version stored the raw concat() pointer directly, and two
+// tasks spawned back-to-back (enough combined format/concat/quote_arg
+// calls between storing out_path and reading it to wrap the 16-slot
+// pool) caused fopen() to open a corrupted path and fgets() to hang
+// indefinitely on the resulting bad FILE* - not a crash, a genuine
+// stuck process, confirmed via WaitForSingleObject on a bounded timeout
+// never firing.
+fn dup_string(s: String) -> String = {
+    let n: i64 = len(s);
+    let buf: String = alloc(n + 1);
+    copy_into(buf, s)
 }
 
 // compiler_path is the frust_compiler.exe to spawn - not hardcoded,
@@ -55,7 +99,7 @@ pub fn run(compiler_path: String, worker_path: String, input_val: i64) -> i64 = 
     let id_str: String = format_i64(id);
 
     let in_path: String = concat(id_str, "_in.txt");
-    let out_path: String = concat(id_str, "_out.txt");
+    let out_path: String = dup_string(concat(id_str, "_out.txt"));
 
     let f: String = fopen(in_path, "w");
     let s: String = format_i64(input_val);
@@ -64,6 +108,52 @@ pub fn run(compiler_path: String, worker_path: String, input_val: i64) -> i64 = 
 
     set_env("FRUST_TASK_ID", id_str);
     spawn_wait2(compiler_path, worker_path);
+
+    let out_f: String = fopen(out_path, "r");
+    let buf: String = alloc(64);
+    fgets(buf, 64, out_f);
+    fclose(out_f);
+    parse_i64(buf)
+}
+
+// The real async version: returns immediately (does NOT wait for the
+// child to finish) with an opaque handle - call await_result_async()
+// later when you actually need the result. task_salt must be distinct
+// across concurrently in-flight run_async() calls - see
+// next_task_id_async().
+//
+// The returned handle packs [proc_handle: i64, out_path: pointer] into
+// one buffer (two different types in the same 8-byte-slot layout,
+// same trick task.fr's packed buffers already use) - proc_handle isn't
+// a pointer this process allocated, so it goes through set_i64/get_i64
+// while out_path goes through set_ptr/get_ptr at the neighboring slot.
+pub fn run_async(compiler_path: String, worker_path: String, input_val: i64, task_salt: i64) -> String = {
+    let id: i64 = next_task_id_async(task_salt);
+    let id_str: String = format_i64(id);
+
+    let in_path: String = concat(id_str, "_in.txt");
+    let out_path: String = dup_string(concat(id_str, "_out.txt"));
+
+    let f: String = fopen(in_path, "w");
+    let s: String = format_i64(input_val);
+    fwrite(s, 1, len(s), f);
+    fclose(f);
+
+    set_env("FRUST_TASK_ID", id_str);
+    let proc_handle: String = spawn_async2(compiler_path, worker_path);
+
+    let pt: String = alloc(16);
+    set_ptr(pt, 0, proc_handle);
+    set_ptr(pt, 1, out_path);
+    pt
+}
+
+// Blocks until the process behind pt (from run_async()) finishes, then
+// reads its result.
+pub fn await_result_async(pt: String) -> i64 = {
+    let proc_handle: String = get_ptr(pt, 0);
+    let out_path: String = get_ptr(pt, 1);
+    wait_process(proc_handle);
 
     let out_f: String = fopen(out_path, "r");
     let buf: String = alloc(64);
