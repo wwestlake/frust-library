@@ -12,14 +12,18 @@
 // both arguments are in hand, and the bound argument is genuinely fixed
 // at curry2() time, not re-passed at apply1() time.
 //
-// Scoped to 2-argument functions curried on the first argument for v1 -
-// curry3/apply2 (and beyond) are the same mechanical pattern, just not
-// written yet; not a hard limit, just unwritten.
+// curry3/apply2 binds the first TWO arguments of a 3-argument function,
+// same pattern as curry2/apply1 - not a more general "bind one argument
+// at a time, N calls deep" curry chain (that would need each partial to
+// track how many of the total args are still unbound, a real additional
+// design, not just more copy-paste). Beyond 3 args is the same
+// mechanical extension again, still not written.
 //
 // Verified: curry2(add, 3) then apply1(_, 4) produced 7, and the same
 // partial applied to different second arguments produced different
 // results each time (the binding isn't accidentally re-evaluating add
-// eagerly at curry2() time).
+// eagerly at curry2() time). curry3(add3, 1, 2) then apply2(_, 3)
+// produced 6.
 
 pub fn curry2(f: String, bound_a: i64) -> String = {
     let p: String = alloc(16);
@@ -32,4 +36,19 @@ pub fn apply1(partial: String, b: i64) -> i64 = {
     let f: String = get_ptr(partial, 0);
     let a: i64 = get_i64(partial, 1);
     f(a, b)
+}
+
+pub fn curry3(f: String, bound_a: i64, bound_b: i64) -> String = {
+    let p: String = alloc(24);
+    set_ptr(p, 0, f);
+    set_i64(p, 1, bound_a);
+    set_i64(p, 2, bound_b);
+    p
+}
+
+pub fn apply2(partial: String, c: i64) -> i64 = {
+    let f: String = get_ptr(partial, 0);
+    let a: i64 = get_i64(partial, 1);
+    let b: i64 = get_i64(partial, 2);
+    f(a, b, c)
 }
