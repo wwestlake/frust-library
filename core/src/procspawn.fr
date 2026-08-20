@@ -1,0 +1,79 @@
+// core/procspawn - real OS process spawning, wrapping msvcrt's
+// _spawnv/_putenv.
+//
+// Windows-only, same reasoning as thread.fr (Linux/Pi paused, no
+// platform-conditional source mechanism yet).
+//
+// _spawnv, not raw CreateProcess: CreateProcess needs hand-populated
+// STARTUPINFO/PROCESS_INFORMATION structs written at exact byte offsets
+// - real, tedious, error-prone work for no benefit here. _spawnv takes
+// a flat, null-terminated argv array - buildable with buffer.fr's
+// set_ptr/null, the same way task.fr's packed buffers already are.
+//
+// A spawned process does NOT share this process's address space, so
+// none of thread.fr/task.fr's pointer-passing tricks apply here - see
+// process_task.fr for how results actually cross the boundary (an
+// environment variable naming matching input/output files).
+
+extern fn _spawnv(mode: i64, cmdname: String, argv: String) -> i64;
+extern fn _putenv(envstring: String) -> i32;
+
+pub fn wait_mode() -> i64 = {
+    0 // P_WAIT, per <process.h>
+}
+
+// _spawnv does NOT quote argv elements when it reconstructs the single
+// command-line string CreateProcess actually wants - verified directly:
+// an unquoted path containing a space split into multiple argv entries
+// in the child, which frust_compiler's own "one or more input files"
+// parsing then tried to open as separate (nonexistent) source files.
+// Every argv element built below is wrapped in literal quotes to avoid
+// that - harmless for a path with no spaces, required for one that has
+// them.
+pub fn quote_arg(s: String) -> String = {
+    concat(concat("\"", s), "\"")
+}
+
+// A 2-element argv (program name, NULL terminator) - the minimal valid
+// argv for a program that takes its real input through the environment
+// and files instead (see process_task.fr's convention).
+pub fn argv1(arg0: String) -> String = {
+    let argv: String = alloc(16);
+    set_ptr(argv, 0, quote_arg(arg0));
+    set_ptr(argv, 1, null);
+    argv
+}
+
+// A 3-element argv (program name, one real argument, NULL terminator) -
+// e.g. [frust_compiler.exe, worker.frust, NULL], matching how
+// frust_compiler's own argv parsing already expects one-or-more input
+// file paths after argv[0].
+pub fn argv2(arg0: String, arg1: String) -> String = {
+    let argv: String = alloc(24);
+    set_ptr(argv, 0, quote_arg(arg0));
+    set_ptr(argv, 1, quote_arg(arg1));
+    set_ptr(argv, 2, null);
+    argv
+}
+
+// Spawns cmdname with a 2-element argv [cmdname, arg1], blocks until it
+// exits, returns its exit code.
+pub fn spawn_wait2(cmdname: String, arg1: String) -> i64 = {
+    let argv: String = argv2(cmdname, arg1);
+    _spawnv(wait_mode(), cmdname, argv)
+}
+
+// Sets an environment variable the CHILD process will inherit - call
+// before spawn_wait, not after (env changes only propagate forward to
+// processes spawned after the change).
+pub fn set_env(name: String, value: String) = {
+    let env_entry: String = concat(concat(name, "="), value);
+    _putenv(env_entry)
+}
+
+// Spawns cmdname with a single-element argv, blocks until it exits,
+// returns its exit code.
+pub fn spawn_wait(cmdname: String) -> i64 = {
+    let argv: String = argv1(cmdname);
+    _spawnv(wait_mode(), cmdname, argv)
+}

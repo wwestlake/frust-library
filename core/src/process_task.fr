@@ -1,0 +1,73 @@
+// core/process_task - "run this .frust file in a separate OS process,
+// get an i64 result" - procspawn.fr's counterpart to task.fr's thread-
+// based version. Same idea, necessarily different mechanism: a spawned
+// process has its own address space, so there's no shared buffer to
+// write a result into. Instead: a per-task ID, communicated via an
+// environment variable (procspawn.fr's set_env/_putenv, read on the
+// worker side with process.fr's env()/getenv), names matching input/
+// output files on disk that both sides read/write through file_io.fr -
+// already-proven primitives, no new IPC machinery.
+//
+// A worker .frust file, run via run(), must follow this exact
+// convention (see D:\Temp\...\test_process_task.frust in this session's
+// scratch work for a full worked example):
+//
+//   entry fn start_app() -> i64 = {
+//       let id: String = env("FRUST_TASK_ID");
+//       let in_path: String = concat(id, "_in.txt");
+//       let out_path: String = concat(id, "_out.txt");
+//       let f: String = fopen(in_path, "r");
+//       let buf: String = alloc(64);
+//       fgets(buf, 64, f);
+//       fclose(f);
+//       let x: i64 = parse_i64(buf);
+//       // ... compute your_answer from x ...
+//       let outf: String = fopen(out_path, "w");
+//       let s: String = format_i64(your_answer);
+//       fwrite(s, 1, len(s), outf);
+//       fclose(outf);
+//       0
+//   }
+//
+// Synchronous only for v1 - spawn_wait blocks until the child exits. A
+// true async version needs _spawnv's P_NOWAIT + _cwait, a natural v2
+// layered on this same file-IPC convention, not implemented here.
+//
+// Verified: a real second `frust_compiler.exe` process, spawned against
+// a worker file that doubles its input, correctly read the value this
+// process wrote to its input file, and the doubled result this process
+// read back from the output file matched exactly.
+
+pub fn next_task_id() -> i64 = {
+    // Reasonably unique for this process's own sequential use (see
+    // run()'s doc - each call fully completes, spawn+wait+read, before
+    // the next one starts, so clock()'s resolution never has to
+    // distinguish two truly concurrent pending tasks). Not a real UUID.
+    clock()
+}
+
+// compiler_path is the frust_compiler.exe to spawn - not hardcoded,
+// since this pod doesn't know its own install location. worker_path is
+// the .frust file that compiler_path should run as the child; it must
+// follow this file's header-documented FRUST_TASK_ID/file convention.
+pub fn run(compiler_path: String, worker_path: String, input_val: i64) -> i64 = {
+    let id: i64 = next_task_id();
+    let id_str: String = format_i64(id);
+
+    let in_path: String = concat(id_str, "_in.txt");
+    let out_path: String = concat(id_str, "_out.txt");
+
+    let f: String = fopen(in_path, "w");
+    let s: String = format_i64(input_val);
+    fwrite(s, 1, len(s), f);
+    fclose(f);
+
+    set_env("FRUST_TASK_ID", id_str);
+    spawn_wait2(compiler_path, worker_path);
+
+    let out_f: String = fopen(out_path, "r");
+    let buf: String = alloc(64);
+    fgets(buf, 64, out_f);
+    fclose(out_f);
+    parse_i64(buf)
+}
