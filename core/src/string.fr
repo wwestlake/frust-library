@@ -100,3 +100,23 @@ pub fn compare_n(a: String, b: String, n: i64) -> i32 = {
 pub fn equals(a: String, b: String) -> bool = {
     strcmp(a, b) == 0
 }
+
+// -----------------------------------------------------------------------
+// dup - a genuine independent heap copy of a string.
+//
+// console_io.fr's format_*/concat() return a pointer into a small
+// ROTATING buffer pool (16 slots) - fine for using the result within
+// the same expression, actively unsafe to stash it anywhere longer-
+// lived (see console_io.fr's header). This was a real, reproduced bug
+// once already (process_task.fr's async multiprocessing stored a raw
+// concat() pointer in a long-lived task handle; enough further format/
+// concat calls elsewhere cycled the pool before it was read back,
+// corrupting it - a real stuck-process bug, not theoretical). dup()
+// makes a real allocation, safe to hold for as long as you need it -
+// call dealloc() (mem.fr) on it when you're done, same as any other
+// alloc().
+pub fn dup(s: String) -> String = {
+    let n: i64 = len(s);
+    let buf: String = alloc(n + 1);
+    copy_into(buf, s)
+}

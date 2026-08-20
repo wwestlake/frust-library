@@ -65,30 +65,15 @@ pub fn next_task_id_async(task_salt: i64) -> i64 = {
     (clock() * 1000000) + task_salt
 }
 
-// console_io.fr's concat() returns a pointer into a small ROTATING
-// buffer pool (16 slots) - fine for using a string within the same
-// expression, actively unsafe to stash the returned pointer anywhere
-// longer-lived (see console_io.fr's header). out_path needs to survive
-// across spawn/wait (and, in run_async's case, other run_async() calls'
-// own concat/format_i64 usage) before it's actually read back - real
-// enough churn to cycle the pool and silently hand back a stale/
-// corrupted pointer. This makes a genuine independent copy via a fresh
-// heap allocation, so it stays valid regardless of how many further
-// format/concat calls happen elsewhere before it's used.
-//
-// This was a real, reproduced bug, not a theoretical one: run_async's
-// original version stored the raw concat() pointer directly, and two
-// tasks spawned back-to-back (enough combined format/concat/quote_arg
-// calls between storing out_path and reading it to wrap the 16-slot
-// pool) caused fopen() to open a corrupted path and fgets() to hang
-// indefinitely on the resulting bad FILE* - not a crash, a genuine
-// stuck process, confirmed via WaitForSingleObject on a bounded timeout
-// never firing.
-fn dup_string(s: String) -> String = {
-    let n: i64 = len(s);
-    let buf: String = alloc(n + 1);
-    copy_into(buf, s)
-}
+// out_path needs to survive across spawn/wait (and, in run_async's
+// case, other run_async() calls' own concat/format_i64 usage) before
+// it's actually read back - real enough churn to cycle console_io.fr's
+// 16-slot rotating buffer pool and silently hand back a stale/corrupted
+// pointer if held raw. string.fr's dup() makes a genuine independent
+// copy instead - see that file's header for the full "this was a real,
+// reproduced bug" story (a stuck fgets() on a corrupted FILE*, not a
+// crash, confirmed via a bounded-timeout WaitForSingleObject never
+// firing).
 
 // compiler_path is the frust_compiler.exe to spawn - not hardcoded,
 // since this pod doesn't know its own install location. worker_path is
@@ -99,7 +84,7 @@ pub fn run(compiler_path: String, worker_path: String, input_val: i64) -> i64 = 
     let id_str: String = format_i64(id);
 
     let in_path: String = concat(id_str, "_in.txt");
-    let out_path: String = dup_string(concat(id_str, "_out.txt"));
+    let out_path: String = dup(concat(id_str, "_out.txt"));
 
     let f: String = fopen(in_path, "w");
     let s: String = format_i64(input_val);
@@ -122,17 +107,16 @@ pub fn run(compiler_path: String, worker_path: String, input_val: i64) -> i64 = 
 // across concurrently in-flight run_async() calls - see
 // next_task_id_async().
 //
-// The returned handle packs [proc_handle: i64, out_path: pointer] into
-// one buffer (two different types in the same 8-byte-slot layout,
-// same trick task.fr's packed buffers already use) - proc_handle isn't
-// a pointer this process allocated, so it goes through set_i64/get_i64
-// while out_path goes through set_ptr/get_ptr at the neighboring slot.
+// The returned handle packs [proc_handle, out_path] into one 2-slot
+// pointer buffer - proc_handle is the Win32 HANDLE _spawnv returns
+// (see procspawn.fr's header for why that's declared as a pointer, not
+// i64), out_path is the dup()'d path above.
 pub fn run_async(compiler_path: String, worker_path: String, input_val: i64, task_salt: i64) -> String = {
     let id: i64 = next_task_id_async(task_salt);
     let id_str: String = format_i64(id);
 
     let in_path: String = concat(id_str, "_in.txt");
-    let out_path: String = dup_string(concat(id_str, "_out.txt"));
+    let out_path: String = dup(concat(id_str, "_out.txt"));
 
     let f: String = fopen(in_path, "w");
     let s: String = format_i64(input_val);
