@@ -1,0 +1,47 @@
+// core/combinators - all2/race2 over task.fr's Task/Promise buffers.
+//
+// all2 needs no new machinery: both tasks' threads are already running
+// concurrently the moment run()/resolve() returns, so sequentially
+// await_result()-ing t1 then t2 still takes max(t1,t2) wall-clock, not
+// their sum - joining in either order is fine.
+//
+// race2 uses the real Win32 primitive for this (WaitForMultipleObjects
+// with bWaitAll=FALSE), not a busy-poll loop - correct and efficient.
+// Only possible now that its DWORD return is declared -> i32 (see
+// thread.fr/task.fr's is_ready for the same WaitForSingleObject fix).
+// Does NOT release either handle - the losing task is still running;
+// call await_result/join on whichever task(s) you actually still need
+// once you're done racing them.
+
+extern fn WaitForMultipleObjects(count: i64, handles: String, waitAll: i64, ms: i64) -> i32;
+
+// Blocks until both tasks finish. Returns a packed 2-slot i64 buffer -
+// read with pair_first/pair_second.
+pub fn all2(t1: String, t2: String) -> String = {
+    let r1: i64 = await_result(t1);
+    let r2: i64 = await_result(t2);
+    let pair_buf: String = alloc(16);
+    set_i64(pair_buf, 0, r1);
+    set_i64(pair_buf, 1, r2);
+    pair_buf
+}
+
+pub fn pair_first(pair: String) -> i64 = {
+    get_i64(pair, 0)
+}
+
+pub fn pair_second(pair: String) -> i64 = {
+    get_i64(pair, 1)
+}
+
+// Returns 0 if t1 finished first, 1 if t2 finished first.
+pub fn race2(t1: String, t2: String) -> i64 = {
+    let h1: String = get_ptr(t1, 0);
+    let h2: String = get_ptr(t2, 0);
+    let handles: String = alloc(16);
+    set_ptr(handles, 0, h1);
+    set_ptr(handles, 1, h2);
+    let idx: i32 = WaitForMultipleObjects(2, handles, 0, wait_forever());
+    let idx64: i64 = idx;
+    idx64
+}

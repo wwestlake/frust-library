@@ -29,6 +29,8 @@ use self::curry;        // partial application (curry2/apply1) - needs
                        // buffer, must compile after it
 use self::promise;      // resolve() - an already-done Task/Promise -
                        // needs task's run_i64, must compile after it
+use self::combinators;  // all2/race2 - needs task's await_result/
+                       // get_ptr/wait_forever, must compile after it
 
 // string.fr/mem.fr/file_io.fr all document the same real gap: Frust has
 // no i32 type, so any libc function returning a plain C `int` can't be
