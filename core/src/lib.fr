@@ -35,7 +35,10 @@ use self::procspawn;    // _spawnv/_putenv wrapper - needs buffer/mem
 use self::process_task; // run() - real multiprocessing via files+env -
                        // needs procspawn, file_io, string, time
 
-// string.fr/mem.fr/file_io.fr all document the same real gap: Frust has
-// no i32 type, so any libc function returning a plain C `int` can't be
-// wrapped safely yet (strcmp, fclose, feof, ...). Not silently missing -
-// each file lists exactly what's blocked and why.
+// Stale note removed: this used to claim Frust has no i32 type, blocking
+// strcmp/fclose/feof/etc. That premise was wrong - i32 works correctly
+// (resolveType already maps it to a real LLVM i32, compileBinary already
+// auto-widens a mismatched int comparison) - verified directly against
+// strcmp, and string.fr/mem.fr/file_io.fr all wrap the functions this
+// comment used to say were blocked. See string.fr's own header for the
+// full correction.

@@ -34,6 +34,12 @@ pub fn pair_second(pair: String) -> i64 = {
     get_i64(pair, 1)
 }
 
+// all2() returns a buffer the caller owns from that point on (matches
+// task.fr's convention) - call this once you're done reading it.
+pub fn free_pair(pair: String) = {
+    dealloc(pair)
+}
+
 // Returns 0 if t1 finished first, 1 if t2 finished first.
 pub fn race2(t1: String, t2: String) -> i64 = {
     let h1: String = get_ptr(t1, 0);
@@ -42,6 +48,10 @@ pub fn race2(t1: String, t2: String) -> i64 = {
     set_ptr(handles, 0, h1);
     set_ptr(handles, 1, h2);
     let idx: i32 = WaitForMultipleObjects(2, handles, 0, wait_forever());
+    // handles is purely internal scratch, never returned - free it here,
+    // unlike t1/t2 themselves, which race2() doesn't own (the losing
+    // task is still running - see this file's header).
+    dealloc(handles);
     let idx64: i64 = idx;
     idx64
 }

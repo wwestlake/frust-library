@@ -11,13 +11,24 @@
 // step as a new task, so `Task a -> (a -> Task b) -> Task b` actually
 // holds.
 //
-// A task is an opaque packed buffer (2 pointer slots: handle, result
-// buffer) - not a struct. A struct returned by value from a function
-// can't have its fields read afterward in Frust's v1 (struct-type
-// tracking only follows a variable bound directly to a struct literal,
-// never one returned by a function - see random.fr's header for the
-// same limitation), so structs are used only within a single function's
-// own frame here, never across a return boundary.
+// A task is an opaque packed buffer (3 pointer slots: OS thread handle,
+// result buffer, the packed worker-argument buffer) - not a struct. A
+// struct returned by value from a function can't have its fields read
+// afterward in Frust's v1 (struct-type tracking only follows a variable
+// bound directly to a struct literal, never one returned by a function
+// - see random.fr's header for the same limitation), so structs are
+// used only within a single function's own frame here, never across a
+// return boundary.
+//
+// Ownership: run()/run_i64() allocate result_buf, the packed argument
+// buffer, and (for run_i64) arg_buf - await_result() is the one place
+// that frees all of it, since it's the only point that's guaranteed the
+// worker thread has fully finished reading/writing those buffers
+// (join() blocks until then). A task is therefore a one-shot value:
+// call await_result() on it exactly once. Calling it twice, or calling
+// it after is_ready() without ever consuming the result, both double-
+// free/use-after-free - not a Frust-specific gap, the same single-
+// consumer contract any one-shot future/promise type has.
 //
 // Worker functions passed to run()/then() must have exactly this shape:
 //
@@ -43,9 +54,13 @@ pub fn run(worker: String, arg_buf: String) -> String = {
 
     let th: String = spawn(worker, packed_arg);
 
-    let task: String = alloc(16);
+    // arg_buf is only reachable from here on via packed_arg (slot 0) -
+    // await_result() retrieves it that way to free it, rather than
+    // needing a 4th slot just to hold a pointer it can already reach.
+    let task: String = alloc(24);
     set_ptr(task, 0, th);
     set_ptr(task, 1, result_buf);
+    set_ptr(task, 2, packed_arg);
     task
 }
 
@@ -56,12 +71,24 @@ pub fn run_i64(worker: String, arg: i64) -> String = {
     run(worker, arg_buf)
 }
 
-// Blocks until the task's thread finishes, then returns its result.
+// Blocks until the task's thread finishes, then returns its result -
+// and frees every buffer run()/run_i64() allocated for this task (see
+// this file's header for the ownership contract: call this exactly
+// once per task).
 pub fn await_result(task: String) -> i64 = {
     let th: String = get_ptr(task, 0);
     let result_buf: String = get_ptr(task, 1);
+    let packed_arg: String = get_ptr(task, 2);
     join(th);
-    get_i64(result_buf, 0)
+    let result: i64 = get_i64(result_buf, 0);
+
+    let arg_buf: String = get_ptr(packed_arg, 0);
+    dealloc(arg_buf);
+    dealloc(packed_arg);
+    dealloc(result_buf);
+    dealloc(task);
+
+    result
 }
 
 // The monadic bind: blocks on t's result, then spawns `next` as a new

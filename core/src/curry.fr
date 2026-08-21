@@ -52,3 +52,14 @@ pub fn apply2(partial: String, c: i64) -> i64 = {
     let b: i64 = get_i64(partial, 2);
     f(a, b, c)
 }
+
+// A partial is deliberately reusable (verified: the same curry2()
+// result applied to multiple different final arguments, each call
+// producing a correct, independent result) - so apply1()/apply2()
+// can't free it themselves without breaking that. Call this once
+// you're actually done with a partial, same "you allocated it (via
+// curry2/curry3), you free it" contract as mem.fr's alloc/dealloc
+// generally.
+pub fn free_partial(partial: String) = {
+    dealloc(partial)
+}
