@@ -1,0 +1,69 @@
+// core/automation - the foundational "automation layer" contract.
+//
+// Term and design defined directly by the user this session: a host
+// embedding Frust (a game engine, a DAW, an IDE plugin system - anything)
+// needs to load *some* stateful thing that turns a per-tick delta-time
+// into a value, without knowing ahead of time which concrete kind it is.
+// A game engine moving a sphere up and down and a DAW automating a filter
+// cutoff are the same shape from Frust's side: something with real
+// internal state (a phase, a rate, whatever) that the host calls once a
+// frame with `tick(delta_time)`, and applies the returned value to
+// whatever it's actually driving. Frust never needs to know what a
+// "sphere" or a "filter" is - that's entirely the host's business.
+//
+// This is genuine interface dispatch, not convention - `Automation` is a
+// real `interface`, and `impl Automation for X` is checked at compile
+// time (every declared method must actually be implemented, or codegen
+// rejects it). A host can hold an `Automation`-typed value without
+// knowing or caring which concrete struct is behind it, and calling
+// `.tick()` on it dispatches through a real vtable to whichever concrete
+// implementation is actually there.
+//
+// Deliberately foundational and host-agnostic, not audio/JUCE-specific -
+// domain-specific automations (audio parameters, engine transforms) are a
+// separate, later concern built on top of this, not part of this file.
+
+interface Automation {
+    fn tick(&mut self, delta_time: f32) -> f32
+}
+
+// A linear ramp: phase accumulates at a fixed rate every tick, forever.
+// The simplest possible real Automation - useful on its own (a steadily
+// rising/falling control value) and as the reference case for verifying
+// any new Automation dispatches correctly.
+struct RampAutomation {
+    phase: f32,
+    rate: f32
+}
+
+impl Automation for RampAutomation {
+    pub fn tick(&mut self, delta_time: f32) -> f32 = {
+        self.phase = self.phase + delta_time * self.rate;
+        self.phase
+    }
+}
+
+// Exponential decay toward zero: each tick multiplies the current value
+// by a fixed factor. Deliberately a structurally different update rule
+// than RampAutomation (accumulate-and-add vs. multiply-in-place) - the
+// two together are what actually prove dynamic dispatch works, not just
+// that one Automation compiles.
+struct DecayAutomation {
+    value: f32,
+    factor: f32
+}
+
+impl Automation for DecayAutomation {
+    pub fn tick(&mut self, delta_time: f32) -> f32 = {
+        self.value = self.value * self.factor;
+        self.value
+    }
+}
+
+// Verified (frust_compiler, Debug): a RampAutomation{phase:0.0, rate:2.0}
+// stored in an Automation-typed `let` and ticked three times with
+// delta_time=1.0 produced 2, 4, 6 - a DecayAutomation{value:100.0,
+// factor:0.5} through the SAME call-site pattern produced 50, 25, 12.5.
+// Same `.tick()` call site, two different concrete types, correct
+// per-instance state maintained across calls for both - genuine
+// polymorphic dispatch, not two independent special cases.
