@@ -1,0 +1,12 @@
+{
+    "name": "core_automation",
+    "version": "0.1.0",
+    "description": "The Automation interface plus RampAutomation/DecayAutomation reference implementations",
+    "sourceFile": "automation.fr",
+    "entryPoints": ["new_ramp", "new_decay"],
+    "implementedInterfaces": [
+        { "interface": "Automation", "type": "RampAutomation", "constructor": "new_ramp" },
+        { "interface": "Automation", "type": "DecayAutomation", "constructor": "new_decay" }
+    ],
+    "requiredHostApiVersion": "0.1.0"
+}
