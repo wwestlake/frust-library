@@ -1,0 +1,37 @@
+// core/services - the ergonomic Frust half of plugin-to-plugin service
+// discovery (docs/17-Plugin-Automation-Layer.md section 4.3). The
+// native registry, ownership tracking, and per-plugin cleanup-on-unload
+// live in frust_plugin_host (C++) - this file exists so a plugin author
+// never writes those extern fn declarations themselves.
+//
+// This is the third connection frust_plugin_host provides, distinct
+// from the other two: core/events.fr is host-fires/plugin-listens;
+// frust_plugin_register_host_function is host-gives-plugin-something-
+// to-call. This one is plugin-to-plugin - one loaded plugin registers a
+// capability under a name, and ANY other loaded plugin (or the host)
+// can look it up by that name and use it, without either side needing
+// to already know which specific plugin provides it.
+//
+// Service values are deliberately opaque (String, the same "just an
+// opaque ptr" convention used everywhere else in this codebase) -
+// domain-agnostic by requirement, so this layer cannot know or
+// constrain what a given service actually is. That meaning is defined
+// entirely by agreement between whoever registers a specific service
+// name and whoever looks it up.
+//
+// IMPORTANT: register_service must be called from within a plugin's own
+// on_init() - that's how frust_plugin_host knows which plugin owns the
+// registration, so it can automatically remove it when that plugin is
+// unloaded. Calling it from anywhere else still works, but the
+// registration won't be cleaned up automatically.
+
+extern fn frust_register_service(name: String, service: String);
+extern fn frust_lookup_service(name: String) -> String;
+
+pub fn register_service(name: String, service: String) = {
+    frust_register_service(name, service);
+}
+
+pub fn lookup_service(name: String) -> String = {
+    frust_lookup_service(name)
+}
