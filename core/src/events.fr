@@ -1,0 +1,31 @@
+// core/events - the ergonomic Frust half of the event subscription
+// system (docs/17-Plugin-Automation-Layer.md). The native registry,
+// dispatch, and per-plugin cleanup-on-unload live in frust_plugin_host
+// (C++) - this file exists so a plugin author never has to write those
+// extern fn declarations themselves: `use core::events` and call
+// register_handler/fire_event directly.
+//
+// Event payloads are deliberately opaque (String - matching this
+// codebase's existing "a String is just an opaque ptr" convention, the
+// same representation a Frust function's own address decays to when
+// passed as a value). This layer is domain-agnostic by requirement, so
+// it cannot know or constrain what any given event's payload means -
+// that meaning is defined entirely by agreement between whoever fires
+// a specific event name and whoever handles it.
+//
+// IMPORTANT: register_handler must be called from within a plugin's own
+// on_init() - that's how frust_plugin_host knows which plugin owns the
+// registration, so it can automatically remove it when that plugin is
+// unloaded. Calling it from anywhere else still works (the handler
+// still fires), but the registration won't be cleaned up automatically.
+
+extern fn frust_register_event_handler(name: String, handler: String);
+extern fn frust_fire_event(name: String, payload: String);
+
+pub fn register_handler(name: String, handler: String) = {
+    frust_register_event_handler(name, handler);
+}
+
+pub fn fire_event(name: String, payload: String) = {
+    frust_fire_event(name, payload);
+}

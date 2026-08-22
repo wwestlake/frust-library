@@ -68,13 +68,13 @@ impl Automation for DecayAutomation {
 // per-instance state maintained across calls for both - genuine
 // polymorphic dispatch, not two independent special cases.
 
-// Host-callable constructors, for a native host (frust_plugin_host,
-// e.g. the JUCE IDE's AutomationPanel) that wants to build one of these
-// and hold onto it across many later calls - not just Frust code calling
-// Frust code in the same stack frame. `own` heap-allocates (see
-// Codegen.h's compileHeapStructLiteral), so the returned pointer stays
-// valid after this function returns - a plain struct literal would NOT
-// survive that (it's stack-allocated in THIS function's own frame).
+// Host-callable constructors, for a native host (frust_plugin_host)
+// that wants to build one of these and hold onto it across many later
+// calls - not just Frust code calling Frust code in the same stack
+// frame. `own` heap-allocates (see Codegen.h's compileHeapStructLiteral),
+// so the returned pointer stays valid after this function returns - a
+// plain struct literal would NOT survive that (it's stack-allocated in
+// THIS function's own frame).
 //
 // A host calls these via frust_plugin_get_fn(handle, "new_ramp") cast to
 // (void*(*)(float))(...), then ticks the result via
