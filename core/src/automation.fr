@@ -23,6 +23,8 @@
 // domain-specific automations (audio parameters, engine transforms) are a
 // separate, later concern built on top of this, not part of this file.
 
+manifest "{\"name\":\"core_automation\",\"version\":\"0.1.0\",\"description\":\"The Automation interface plus RampAutomation/DecayAutomation reference implementations\",\"entryPoints\":[\"new_ramp\",\"new_decay\"],\"implementedInterfaces\":[{\"interface\":\"Automation\",\"type\":\"RampAutomation\",\"constructor\":\"new_ramp\"},{\"interface\":\"Automation\",\"type\":\"DecayAutomation\",\"constructor\":\"new_decay\"}]}";
+
 interface Automation {
     fn tick(&mut self, delta_time: f32) -> f32
 }
