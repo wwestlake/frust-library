@@ -1,0 +1,31 @@
+// core/result - Result<T, E>: a real, structured alternative to the
+// "return a sentinel (null/-1/0) and hope the caller knows the
+// convention" pattern used throughout this pod today (LANGUAGE_GAPS.md
+// #5). A real, monomorphized generic struct (LANGUAGE_GAPS.md #4), not
+// a compiler intrinsic - the first genuinely useful thing built on
+// generics, not just a synthetic test of the feature.
+//
+// Same honest limitation as option.fr: no `Result::ok(x)`/`Result::err(e)`
+// constructor sugar (needs generic free functions, explicitly out of
+// scope for item #4 this pass) and no enforced safety against reading
+// `ok_value` on an Err or `err_value` on an Ok - construct and check
+// directly:
+//
+//   fn safe_divide(a: i64, b: i64) -> Result<i64, String> = {
+//       if (b == 0) {
+//           let r: Result<i64, String> = Result { is_ok: false, err_value: "division by zero" };
+//           r
+//       } else {
+//           let r: Result<i64, String> = Result { is_ok: true, ok_value: a / b };
+//           r
+//       }
+//   }
+//
+//   let r: Result<i64, String> = safe_divide(10, 0);
+//   if (r.is_ok) { r.ok_value } else { -1 }
+
+struct Result<T, E> {
+    is_ok: bool,
+    ok_value: T,
+    err_value: E
+}

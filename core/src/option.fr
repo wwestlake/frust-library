@@ -1,0 +1,24 @@
+// core/option - Option<T>: "a value, or nothing" (LANGUAGE_GAPS.md
+// #5). A real, monomorphized generic struct (LANGUAGE_GAPS.md #4),
+// not a compiler intrinsic like Vector<T> - this is exactly what
+// generics is FOR, and this is the first real thing built on top of
+// it rather than a synthetic test.
+//
+// Honest limitation, stated directly rather than silently worked
+// around: Frust has no pattern matching (a real, separately-queued
+// feature, not one of the numbered gaps) and no generic FREE
+// FUNCTIONS yet (item #4 explicitly scoped those out this pass) - so
+// there is no `Option::some(x)`/`Option::none()` constructor sugar,
+// and no enforced safety preventing you from reading `.value` when
+// `has_value` is false (it's just whatever was left in that memory -
+// same "no default-value story" stance struct literals already have
+// everywhere else in this codebase). Construct directly:
+//
+//   let o: Option<i64> = Option { has_value: true, value: 42 };
+//   let n: Option<i64> = Option { has_value: false };
+//   if (o.has_value) { o.value } else { 0 }
+
+struct Option<T> {
+    has_value: bool,
+    value: T
+}
