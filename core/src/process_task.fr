@@ -8,7 +8,7 @@
 // output files on disk that both sides read/write through file_io.fr -
 // already-proven primitives, no new IPC machinery.
 //
-// A worker .frust file, run via run(), must follow this exact
+// A worker .frust file, run via run_process(), must follow this exact
 // convention (see D:\Temp\...\test_process_task.frust in this session's
 // scratch work for a full worked example):
 //
@@ -29,7 +29,7 @@
 //       0
 //   }
 //
-// run()/await_result() below is the synchronous v1 path (spawn_wait2
+// run_process()/await_result() below is the synchronous v1 path (spawn_wait2
 // blocks until the child exits). run_async()/await_result_async() is
 // the real async version, layered on procspawn.fr's P_NOWAIT +
 // WaitForSingleObject (not msvcrt's _cwait, which hung indefinitely in
@@ -46,7 +46,7 @@
 // concurrently rather than the second silently waiting on the first.
 
 pub fn next_task_id() -> i64 = {
-    // Safe ONLY for the synchronous run() below: each call fully
+    // Safe ONLY for the synchronous run_process() below: each call fully
     // completes (spawn+wait+read) before the next one starts, so
     // clock()'s resolution never has to distinguish two truly
     // concurrent pending tasks. NOT safe for run_async() - see
@@ -79,7 +79,14 @@ pub fn next_task_id_async(task_salt: i64) -> i64 = {
 // since this pod doesn't know its own install location. worker_path is
 // the .frust file that compiler_path should run as the child; it must
 // follow this file's header-documented FRUST_TASK_ID/file convention.
-pub fn run(compiler_path: String, worker_path: String, input_val: i64) -> i64 = {
+// Named run_process, not run - task.fr already has a pub fn
+// run(worker, arg_buf) -> String (the thread-based version). Both
+// files are always compiled together as part of the core pod
+// (lib.fr), which merges every file's declarations into one flat
+// namespace - a real collision here would silently corrupt argument
+// binding at codegen time, same bug class as mem.fr's own compare/
+// compare(n) collision fixed alongside this one.
+pub fn run_process(compiler_path: String, worker_path: String, input_val: i64) -> i64 = {
     let id: i64 = next_task_id();
     let id_str: String = format_i64(id);
 

@@ -32,7 +32,7 @@ pub fn panic(msg: String) = {
 }
 
 pub fn assert(cond: bool, msg: String) = {
-    if !cond {
+    if (!cond) {
         panic(msg)
     }
 }
