@@ -1,0 +1,18 @@
+// core/metaprogram - real Frust wrapper for live quote/unquote/build_time
+// metaprogramming's one user-facing runtime primitive.
+//
+// build_time/quote/unquote themselves are language syntax (real codegen
+// in Codegen.h, no runtime function involved) - but ACTUALLY RUNNING the
+// AST a quote block builds needs a JIT invocation, and that JIT call is
+// a real C++ runtime export (frust_jit_eval_f32, Main.cpp), same
+// category as frust_print_str/frust_buf_get_i64/etc. Every other
+// runtime export in this position already got a real Frust wrapper
+// (console_io.fr, buffer.fr) - this one hadn't, which is a real,
+// unclosed gap, not a fixed limitation: there was no reason a Frust
+// programmer needed to write `extern fn` for this by hand.
+
+extern fn frust_jit_eval_f32(ast: ASTExpr, x: f32) -> f32;
+
+pub fn jit_eval_f32(ast: ASTExpr, x: f32) -> f32 = {
+    frust_jit_eval_f32(ast, x)
+}
