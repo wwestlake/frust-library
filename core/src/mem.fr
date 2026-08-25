@@ -47,6 +47,17 @@ pub fn fill(dest: String, val: i64, n: i64) -> String = {
     memset(dest, val, n)
 }
 
-pub fn compare(a: String, b: String, n: i64) -> i32 = {
+// Named mem_compare, not compare - string.fr already has a pub fn
+// compare(a, b) -> i32 wrapping strcmp (null-terminated string
+// comparison). Both files are always compiled together as part of
+// the core pod (lib.fr), which merges every file's declarations into
+// one flat namespace - a genuine name collision here isn't cosmetic,
+// it's a real bug: LLVM silently renames the second same-named
+// function internally, which desyncs from Codegen.h's own signature
+// lookup and corrupts argument binding, crashing at compile time.
+// Found by actually compiling the whole core pod end-to-end with a
+// real entry point for the first time - confirmed via a real
+// hand-reduced repro, not theorized.
+pub fn mem_compare(a: String, b: String, n: i64) -> i32 = {
     memcmp(a, b, n)
 }

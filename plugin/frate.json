@@ -1,0 +1,9 @@
+{
+  "name": "plugin",
+  "version": "1.0.0",
+  "type": "lib",
+  "namespace": "frust::plugin",
+  "description": "FRust plugin host events and service discovery.",
+  "exports": ["register_handler", "fire_event", "register_service", "lookup_service"],
+  "dependencies": []
+}

@@ -1,0 +1,24 @@
+// plugin - optional wrappers for the FRust plugin host's event and service
+// registries. Import this pod only from code that runs in a plugin-capable
+// host; ordinary applications should import core instead.
+
+extern fn frust_register_event_handler(name: String, handler: String);
+extern fn frust_fire_event(name: String, payload: String);
+extern fn frust_register_service(name: String, service: String);
+extern fn frust_lookup_service(name: String) -> String;
+
+pub fn register_handler(name: String, handler: String) = {
+    frust_register_event_handler(name, handler);
+}
+
+pub fn fire_event(name: String, payload: String) = {
+    frust_fire_event(name, payload);
+}
+
+pub fn register_service(name: String, service: String) = {
+    frust_register_service(name, service);
+}
+
+pub fn lookup_service(name: String) -> String = {
+    frust_lookup_service(name)
+}

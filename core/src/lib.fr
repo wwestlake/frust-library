@@ -9,6 +9,8 @@
 use self::console_io; // string formatting/concatenation, println_*
 use self::math;       // abs/min/max/clamp, trig, libm extras (pow/log/floor/...)
 use self::string;     // libc string.h (only the 64-bit-safe parts - see file)
+use self::option;     // Option<T> - generic struct, no deps on anything else here
+use self::result;     // Result<T, E> - generic struct, no deps on anything else here
 use self::mem;        // malloc/free/realloc/memcpy/memset/memmove
 use self::file_io;    // fopen/fread/fwrite/fgets (no fclose yet - see file)
 use self::time;       // clock() only (see file for why time() isn't here)
@@ -34,6 +36,21 @@ use self::combinators;  // all2/race2 - needs task's await_result/
 use self::procspawn;    // _spawnv/_putenv wrapper - needs buffer/mem
 use self::process_task; // run() - real multiprocessing via files+env -
                        // needs procspawn, file_io, string, time
+// Plugin events/services and live metaprogramming deliberately live in the
+// separate `plugin` and `meta` pods. Importing core for basic application
+// work must not pull the plugin host or LLVM into every executable.
+
+// core/automation.fr deliberately NOT listed above - real, checked, not
+// an oversight. It carries its own embedded `manifest "...";`
+// declaration (the Automation interface + RampAutomation/DecayAutomation
+// reference implementations, meant to be loaded as its own plugin file).
+// Codegen.h's compileManifestDecl allows at most one manifest per
+// compiled program - pulling automation.fr into this pod would mean ANY
+// plugin that does `use core;` while ALSO declaring its own manifest
+// (mandatory under "no manifest, no load") gets a guaranteed manifest
+// conflict at compile time. Use automation.fr standalone (its own
+// `frust_plugin_load`, or LANGUAGE_GAPS.md #8's `use self::automation;`
+// multi-file mechanism from the loading plugin's own directory) instead.
 
 // Stale note removed: this used to claim Frust has no i32 type, blocking
 // strcmp/fclose/feof/etc. That premise was wrong - i32 works correctly
