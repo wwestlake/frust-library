@@ -1,0 +1,8 @@
+// meta - optional live metaprogramming runtime helpers. quote, unquote, and
+// build_time remain language syntax; this pod exposes the runtime evaluator.
+
+extern fn frust_jit_eval_f32(ast: ASTExpr, x: f32) -> f32;
+
+pub fn jit_eval_f32(ast: ASTExpr, x: f32) -> f32 = {
+    frust_jit_eval_f32(ast, x)
+}

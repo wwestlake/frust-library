@@ -15,7 +15,9 @@ mounted at `projects/06_frust_library`.
 
 | Pod | Type | Status |
 | :-- | :--- | :----- |
-| `core` | lib | in progress - 18 source files, see below |
+| `core` | lib | foundational application APIs |
+| `plugin` | lib | opt-in plugin event and service APIs |
+| `meta` | lib | opt-in live metaprogramming API |
 
 `core`'s modules (see `core/src/lib.fr` for the compile-order file list,
 and each module's own header comment for the full story):
@@ -62,6 +64,11 @@ and each module's own header comment for the full story):
   memory, so `task`'s buffer tricks don't apply) - both a synchronous
   version and a real async one (`run_async`/`await_result_async`,
   verified for genuine concurrency, not just correctness)
+
+`plugin` contains the event and service wrappers backed by
+`frust_plugin_host`. `meta` contains the `jit_eval_f32` wrapper for live
+metaprogramming. They are separate so a normal `import core` application does
+not link plugin-host or LLVM support it does not use.
 
 **The "no i32" premise threaded through early revisions of this pod was
 wrong** - `i32` works correctly in Frust (verified directly against

@@ -36,15 +36,9 @@ use self::combinators;  // all2/race2 - needs task's await_result/
 use self::procspawn;    // _spawnv/_putenv wrapper - needs buffer/mem
 use self::process_task; // run() - real multiprocessing via files+env -
                        // needs procspawn, file_io, string, time
-use self::events;       // frust_plugin_host's event subscription system -
-                       // register_handler/fire_event, no deps on anything else here
-use self::services;     // frust_plugin_host's plugin-to-plugin service
-                       // discovery - register_service/lookup_service, no
-                       // deps on anything else here
-use self::metaprogram;  // jit_eval_f32 - real wrapper for the one
-                       // user-facing runtime call live quote/unquote/
-                       // build_time metaprogramming needs, no deps on
-                       // anything else here
+// Plugin events/services and live metaprogramming deliberately live in the
+// separate `plugin` and `meta` pods. Importing core for basic application
+// work must not pull the plugin host or LLVM into every executable.
 
 // core/automation.fr deliberately NOT listed above - real, checked, not
 // an oversight. It carries its own embedded `manifest "...";`
