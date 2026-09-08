@@ -1,35 +1,24 @@
 // core/result - Result<T, E>: a real, structured alternative to the
 // "return a sentinel (null/-1/0) and hope the caller knows the
 // convention" pattern used throughout this pod today (LANGUAGE_GAPS.md
-// #5). A real, monomorphized generic struct (LANGUAGE_GAPS.md #4), not
-// a compiler intrinsic - the first genuinely useful thing built on
-// generics, not just a synthetic test of the feature.
+// #5). A real discriminated union (LANGUAGE_GAPS.md's algebraic-data-
+// types work), not the flag-struct hack this used to be - `match`
+// enforces that both cases are handled, no sentinel field to forget to
+// check first.
 //
-// Result::ok/Result::err (LANGUAGE_GAPS.md #5's constructor sugar) are
-// real generic free functions whose declared NAME is itself a
-// qualified path (`fn Result::ok<T, E>(...)`, LANGUAGE_GAPS.md #4's
-// remaining piece) - call with explicit turbofish type arguments,
-// since Frust has no type inference:
+// Ok/Err construction and Codegen.h's synthesized `Result::Ok`/
+// `Result::Err` constructor functions come from this ONE enum
+// declaration - no hand-written constructor sugar needed, unlike the
+// old struct-based version:
 //
-//   let r: Result<i64, String> = Result::ok::<i64, String>(42);
-//   let e: Result<i64, String> = Result::err::<i64, String>("division by zero");
-//   if (r.is_ok) { r.ok_value } else { -1 }
-//
-// Still no enforced safety against reading `ok_value` on an Err or
-// `err_value` on an Ok - always check `is_ok` first.
+//   let r: Result<i64, String> = Result::Ok::<i64, String>(42);
+//   let e: Result<i64, String> = Result::Err::<i64, String>("division by zero");
+//   match (r) {
+//       Result::Ok(v) => v,
+//       Result::Err(msg) => -1,
+//   }
 
-struct Result<T, E> {
-    is_ok: bool,
-    ok_value: T,
-    err_value: E
-}
-
-fn Result::ok<T, E>(v: T) -> Result<T, E> = {
-    let r: Result<T, E> = Result { is_ok: true, ok_value: v };
-    r
-}
-
-fn Result::err<T, E>(e: E) -> Result<T, E> = {
-    let r: Result<T, E> = Result { is_ok: false, err_value: e };
-    r
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
 }

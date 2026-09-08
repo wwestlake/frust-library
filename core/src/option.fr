@@ -1,35 +1,22 @@
-// core/option - Option<T>: "a value, or nothing" (LANGUAGE_GAPS.md
-// #5). A real, monomorphized generic struct (LANGUAGE_GAPS.md #4),
-// not a compiler intrinsic like Vector<T> - this is exactly what
-// generics is FOR, and this is the first real thing built on top of
-// it rather than a synthetic test.
+// core/option - Option<T>: "a value, or nothing" (LANGUAGE_GAPS.md #5).
+// A real discriminated union (LANGUAGE_GAPS.md's algebraic-data-types
+// work), not the flag-struct hack this used to be - `match` enforces
+// that both cases are handled, no `has_value` field to forget to check
+// first.
 //
-// Option::some/Option::none (LANGUAGE_GAPS.md #5's constructor sugar)
-// are real generic free functions whose declared NAME is itself a
-// qualified path (`fn Option::some<T>(...)`, LANGUAGE_GAPS.md #4's
-// remaining piece) - call with explicit turbofish type arguments,
-// since Frust has no type inference:
+// Some/None construction and Codegen.h's synthesized `Option::Some`/
+// `Option::None` constructor functions come from this ONE enum
+// declaration - no hand-written constructor sugar needed, unlike the
+// old struct-based version:
 //
-//   let o: Option<i64> = Option::some::<i64>(42);
-//   let n: Option<i64> = Option::none::<i64>();
-//   if (o.has_value) { o.value } else { 0 }
-//
-// Still no pattern matching (a real, separately-queued feature, not
-// one of the numbered gaps) and no enforced safety preventing you from
-// reading `.value` when `has_value` is false - always check
-// `has_value` first.
+//   let o: Option<i64> = Option::Some::<i64>(42);
+//   let n: Option<i64> = Option::None::<i64>();
+//   match (o) {
+//       Option::Some(v) => v,
+//       Option::None => 0,
+//   }
 
-struct Option<T> {
-    has_value: bool,
-    value: T
-}
-
-fn Option::some<T>(v: T) -> Option<T> = {
-    let o: Option<T> = Option { has_value: true, value: v };
-    o
-}
-
-fn Option::none<T>() -> Option<T> = {
-    let o: Option<T> = Option { has_value: false };
-    o
+enum Option<T> {
+    Some(T),
+    None
 }
