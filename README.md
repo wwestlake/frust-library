@@ -84,9 +84,10 @@ omission.
 
 ## Cross-pod calls
 
-Frust has no `use pod::thing` import syntax yet, but it does have C-style
-`extern fn name(...) -> T;` forward declarations. A pod that depends on
-another (declared in its own `frate.json`) calls into it by hand-writing
-an `extern fn` matching the dependency's signature; `frate build` links
-the resulting object files together. See FRATE_SPEC.md section 5.1/9 in
-the parent repo for what's and isn't automated yet.
+Use `use pod_name;` for a direct Frate dependency. The pod's version lives
+in `frate.json`, and Frate compiles that dependency's `src/lib.fr` plus
+its `use self::...` modules into the same build, so exported declarations
+are available without hand-written `extern fn` declarations.
+
+Fine-grained symbol imports such as `use core::math::sqrt;` are still a
+future name-resolution feature; today the whole direct pod is imported.
